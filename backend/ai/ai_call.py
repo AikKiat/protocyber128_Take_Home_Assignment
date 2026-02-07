@@ -1,7 +1,7 @@
 
 from langgraph.graph import END, StateGraph
-from nodes.result_parser import result_parser
-from state import State
+from ai.nodes.result_parser import result_parser
+from ai.state import State
 
 
 def build_ai_call():

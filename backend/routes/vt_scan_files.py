@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, status, HTTPException
 from utils.config import SystemSettings
 from typing import Optional
-from services.vt_scan_files import upload_file_to_vt_db, get_quick_file_report_from_hash, get_analysis_for_filename
+from services.vt_scan_files import upload_file_to_vt_db, get_quick_file_report_from_hash, get_analysis_for_file_uuid
 
 
 router = APIRouter(prefix="/vt", tags=["VirusTotal"])
@@ -19,6 +19,12 @@ async def full_scan(file: UploadFile = File(...), password: Optional[str] = None
 
     try:
         result = await upload_file_to_vt_db(file=file, password=password)
+
+        """
+        returns: {"filename" : filename, "uuid" : _uuid, "Found" : True,  "analysis_object": analysis_object}
+        or:
+        returns : {"filename" : filename, "uuid" : _uuid, "Found": False, "analysis_id": analysis_id}
+        """
             
         return {"status" : status.HTTP_200_OK, "result" : result}
         """
@@ -73,10 +79,10 @@ async def quick_lookup_hash(file : UploadFile):
 
 
 
-@router.get("/current-analysis/{filename}") #WORKS
-async def get_analysis( filename : str):
+@router.get("/current-analysis/{file_uuid}") #WORKS
+async def get_analysis( file_uuid : str):
     try:
-        result = await get_analysis_for_filename(filename = filename)
+        result = await get_analysis_for_file_uuid(file_uuid = file_uuid)
         return {"status" : status.HTTP_200_OK, "result" : result}
     
         """

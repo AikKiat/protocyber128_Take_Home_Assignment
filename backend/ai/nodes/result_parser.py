@@ -2,9 +2,9 @@
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from state import State
-from prompts import Prompts
-from llm import Llm
+from ai.state import State
+from ai.prompts import Prompts
+from ai.llm import Llm
 
 def result_parser(state : State):
     llm = Llm.get_instance().llm

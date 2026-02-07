@@ -22,7 +22,7 @@ app.add_middleware(
 
 app.include_router(vt_router)
 app.include_router(ai_router)
-app.include(fileops_router)
+app.include_router(fileops_router)
 
 @app.get("/", tags=["Health"])
 async def root():

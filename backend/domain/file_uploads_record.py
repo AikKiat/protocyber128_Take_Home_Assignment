@@ -23,7 +23,7 @@ class FileUploadsRecord:
     
     """
 
-    filename_to_analysis_ids : Dict[str, str] = {}
+    uuid_to_analysis_ids : Dict[str, str] = {}
 
     uuid_filename_mappings : Dict[str, str] = {} #maps uuid -> filename
 
@@ -42,23 +42,28 @@ class FileUploadsRecord:
     
 
     #Only done if the file is a new file, not scanned before.
-    def add_to_files_pending_analysis(self, filename, analysis_id):
-        self.upload_records.append(filename)
-        self.filename_to_analysis_ids[filename] = analysis_id
+    def add_to_files_pending_analysis(self, file_uuid, analysis_id):
+        if file_uuid not in self.uuid_to_analysis_ids:
+            self.uuid_to_analysis_ids[file_uuid] = analysis_id
+            print(self.uuid_to_analysis_ids)
+            print("[FILE UPLOADS RECORD] Successfully mapped uuid to analysis id.")
+        else:
+            print("[FILE UPLOADS RECORD] Filename alreadt exists in filename analysis id pair. No need to upload.")
 
-    def get_analysis_id_for_filename(self,filename : str):
-        if filename in self.filename_to_analysis_ids:
-            return self.filename_to_analysis_ids[filename]
+    def get_analysis_id_for_file_uuid(self, file_uuid: str):
+        if file_uuid in self.uuid_to_analysis_ids:
+            return self.uuid_to_analysis_ids[file_uuid]
         raise ResourceNotFound("Filename not found in the records of analysis id and filename.")
     
 
-    def add_to_uuid_filename_record(self, filename : str, _uuid : str):
-        if _uuid in self.uuid_filename_mappings and self.uuid_filename_mappings[_uuid] == filename:
+    def add_to_uuid_filename_record(self, filename : str, file_uuid : str):
+        if file_uuid in self.uuid_filename_mappings and self.uuid_filename_mappings[file_uuid] == filename:
             print("[FILE_UPLOAD_RECORDS_DOMAIN] uuid and filename already present")
-        elif _uuid in self.uuid_filename_mappings and self.uuid_filename_mappings[_uuid] != filename:
+        elif file_uuid in self.uuid_filename_mappings and self.uuid_filename_mappings[file_uuid] != filename:
             raise ValueError("[FILE_UPLOAD_RECORDS_DOMAIN] uuid is already set in upload store but points to a different filename")
         else:
-            self.uuid_filename_mappings[_uuid] = filename
+            self.uuid_filename_mappings[file_uuid] = filename
+            print(file_uuid, filename)
             print("[FILE_UPLOAD_RECORDS_DOMAIN] uuid and filename successfully mapped.")
 
     
@@ -69,12 +74,6 @@ class FileUploadsRecord:
     @vt_upload_result.setter
     def vt_upload_result(self, value):
         self._vt_upload_result = value
-
-
-
-    @property
-    def upload_records(self):
-        return self._upload_records
 
 
     @property
@@ -96,33 +95,34 @@ class FileUploadsRecord:
 
 
 
-    def get_filename_for_uuid(self, uuid : str):
-        if uuid not in self.uuid_filename_mappings:
-            raise ResourceNotFound("Filename not found in UUID mappings.")
+    def get_filename_for_uuid(self, file_uuid : str):
+        print(self.uuid_filename_mappings)
+        if file_uuid not in self.uuid_filename_mappings:
+            raise ResourceNotFound("uuid not found in UUID mappings.")
         
-        return self.uuid_filename_mappings[uuid]
+        return self.uuid_filename_mappings[file_uuid]
 
 
     #Cache logic (Using methods exposed for Redis Cache)
 
-    async def get_analysis_object(self, filename : str):
+    def get_analysis_object(self, file_uuid : str):
         vtcache = VTCache()
-        return vtcache.get_filename_analysis_object(filename=filename)
+        return vtcache.get_filename_analysis_object(file_uuid=file_uuid)
 
-    async def get_file_object(self, filename : str):
+    def get_file_object(self, file_uuid : str):
         vtcache = VTCache()
-        return vtcache.get_filename_file_object(filename=filename)
+        return vtcache.get_filename_file_object(file_uuid=file_uuid)
 
 
 
     #We store into cache, and update the current showing one at the same time.
-    async def store_analysis_result(self, filename, analysis_result):
+    def store_analysis_result(self, file_uuid, analysis_result):
         vtcache = VTCache()
-        await vtcache.set_filename_analysis_object(filename=filename, obj=analysis_result)
+        vtcache.set_filename_analysis_object(file_uuid=file_uuid, obj=analysis_result)
 
-    async def store_file_hash_result(self, filename, result_from_hash):
+    def store_file_hash_result(self, file_uuid, result_from_hash):
         vtcache = VTCache()
-        await vtcache.set_filename_file_object(filename=filename, obj=result_from_hash)
+        vtcache.set_filename_file_object(file_uuid=file_uuid, obj=result_from_hash)
 
 
     

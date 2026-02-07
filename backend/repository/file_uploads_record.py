@@ -4,31 +4,31 @@ from domain.file_uploads_record import FileUploadsRecord
 from vt_api_mappers.vt_get_analysis import AnalysisResponsePayload
 from vt_api_mappers.vt_get_file_report import FileResponsePayload
 
-
-def check_in_upload_records(_uuid : str):
-    if _uuid in FileUploadsRecord.get_instance().uuid_filename_mappings:
+def check_in_upload_records(file_uuid : str):
+    if file_uuid in FileUploadsRecord.get_instance().uuid_filename_mappings:
         return True
     return False
 
-async def retrieve_full_results(filename : str):
-    return await FileUploadsRecord.get_instance().get_analysis_object(filename=filename)
-
-async def retrieve_hash_results(filename : str):
-    return await FileUploadsRecord.get_instance().get_file_object(filename=filename)
-
-def add_filename_analysis_id_pair(filename : str, analysis_id : str):
-    FileUploadsRecord.get_instance().add_to_files_pending_analysis(filename=filename, analysis_id=analysis_id)
-
-def get_analysis_id_for_filename(filename : str):
-    FileUploadsRecord.get_instance().get_analysis_id_for_filename(filename=filename)
+def retrieve_full_results(file_uuid : str):
+    return FileUploadsRecord.get_instance().get_analysis_object(file_uuid=file_uuid)
 
 
+def retrieve_hash_results(file_uuid : str):
+    return FileUploadsRecord.get_instance().get_file_object(file_uuid=file_uuid)
 
-async def store_result_from_file_hash(filename, result : FileResponsePayload):
-    await FileUploadsRecord.get_instance().store_file_hash_result(filename=filename, result_from_hash=result)
+def add_filename_analysis_id_pair(file_uuid : str, analysis_id : str):
+    FileUploadsRecord.get_instance().add_to_files_pending_analysis(file_uuid=file_uuid, analysis_id=analysis_id)
 
-async def store_result_from_full_analysis(filename, result : AnalysisResponsePayload):
-    await FileUploadsRecord.get_instance().store_analysis_result(filename=filename, analysis_result=result)
+def get_analysis_id_for_uuid(file_uuid : str):
+    return FileUploadsRecord.get_instance().get_analysis_id_for_file_uuid(file_uuid = file_uuid)
+
+
+
+def store_result_from_file_hash(file_uuid, result : FileResponsePayload):
+    FileUploadsRecord.get_instance().store_file_hash_result(file_uuid=file_uuid, result_from_hash=result.model_dump_json())
+
+def store_result_from_full_analysis(file_uuid, result : AnalysisResponsePayload):
+    FileUploadsRecord.get_instance().store_analysis_result(file_uuid=file_uuid, analysis_result=result.model_dump_json())
 
 
 
@@ -41,11 +41,11 @@ def set_current_upload_result(upload_result : FileResponsePayload | AnalysisResp
 
 
 
-def get_filename_for_uuid(uuid : str):
-    return FileUploadsRecord.get_instance().get_filename_for_uuid(uuid=uuid)
+def get_filename_for_uuid(file_uuid : str):
+    return FileUploadsRecord.get_instance().get_filename_for_uuid(file_uuid=file_uuid)
 
-def add_to_uuid_filename_record(filename : str, _uuid : str):
-    return FileUploadsRecord.get_instance().add_to_uuid_filename_record(filename=filename, _uuid = _uuid)
+def add_to_uuid_filename_record(filename : str, file_uuid : str):
+    FileUploadsRecord.get_instance().add_to_uuid_filename_record(filename=filename, file_uuid = file_uuid)
 
 
 def get_current_filename():

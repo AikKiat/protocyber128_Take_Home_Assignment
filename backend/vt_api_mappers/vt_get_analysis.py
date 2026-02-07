@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 from pydantic import Field
-from api.vt_base_mapper_model import VTBaseModel
+from vt_api_mappers.vt_base_mapper_model import VTBaseModel
 from constants import Category, Status
 
 
