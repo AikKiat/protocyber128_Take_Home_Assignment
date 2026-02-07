@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes.virus_total.virus_total_scan import router as vt_router
+from routes.vt_scan_files import router as vt_router
+from routes.ai_summarise import router as ai_router
+from routes.files_operations import router as fileops_router
+
 
 app = FastAPI(
     title="ProtoCyber VirusTotal Scanner",
@@ -8,17 +11,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure based on your frontend
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
+
 app.include_router(vt_router)
+app.include_router(ai_router)
+app.include(fileops_router)
 
 @app.get("/", tags=["Health"])
 async def root():

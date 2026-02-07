@@ -113,3 +113,10 @@ Your submission will be assessed on:
 
 We look forward to seeing your innovative solutions and thoughtful designs!  
 **CloudsineAI Team**  
+
+
+### Current Progress: 
+- Backend: Basic Routes Done 
+   - 1. POST /vt/upload/complete (Upload a file to VT datastores to get checked by 70+ antivirus tools)
+   - 2. POST /vt/upload-quick (Upload the file's hash to VT, for a preliminary analysis after cross-checking with similar historical results)
+   - 3. GET /vt/analysis/{filename} (Get the analysis state for a given file that was uploaded completely to VT datastore.)

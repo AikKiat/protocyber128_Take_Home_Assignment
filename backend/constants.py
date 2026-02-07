@@ -55,6 +55,11 @@ class SandboxCategory(Enum):
 #---END GET /files/{id}
 
 
+class Types(Enum):
+    HASH_BASED = "hash"
+    FULL_UPLOAD = "full"
+
+
 
 
 

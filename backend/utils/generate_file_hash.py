@@ -7,15 +7,27 @@
 
 
 import hashlib
+from fastapi import UploadFile
+import tempfile, os, shutil
 
-def hash_sha256(path : str) -> str:
-    hash = hashlib.sha256()
-    with open(path, "rb") as f :
-        for eight_byte_chunk in iter(lambda : f.read(8192), b""):
-            hash.update(eight_byte_chunk)
-    return hash.hexdigest() #returns the message digest value, as hexadecimal
+def retrieve_file_hash(file : UploadFile) -> str:
 
+    try:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            temporary_path = tmp.name
 
-print(hash_sha256("../../files/jquery-3.5.1.min.js"))
+            hash = hashlib.sha256()
+            with open(temporary_path, "rb") as f :
+                for eight_byte_chunk in iter(lambda : f.read(8192), b""):
+                    hash.update(eight_byte_chunk)
+            return hash.hexdigest() #returns the message digest value, as hexadecimal
+        
+    except Exception as e:
+        print(f"Failed to hash file, {e}")
+
+    finally: #clean up, remove file from temporary storage
+        if temporary_path and os.path.exists(temporary_path):
+            os.unlink(temporary_path)
 
 

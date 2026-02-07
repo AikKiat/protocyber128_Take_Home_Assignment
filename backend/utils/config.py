@@ -3,16 +3,35 @@
 
 from enum import Enum
 import os
-
-class UnknownFilePolicy(str, Enum):
-    BLOCK = "block"
-    UPLOAD = "upload"
-
-FILE_UPLOAD_POLICY = UnknownFilePolicy(os.getenv("UNKNOWN_FILE_POLICY", "block"))
+from dotenv import load_dotenv
+load_dotenv()
 
 
-#Max allowed size is 50mb
-MAX_FILE_SIZE = 50 * 1024 * 1024
-BASE_URL = os.getenv("BASE_URL")
-VT_API_KEY = os.getenv("VT_API_KEY")
+class SystemSettings:
+
+    _instance : SystemSettings = None
+
+    #Max allowed size is 50mb
+    _max_size = 50 * 1024 * 1024
+
+    def __init__(self):
+        return ("This is a singleton. Access it via get_instance() instead")
+    
+    @classmethod
+    def get_instance(cls):
+        if cls._instance == None:
+            cls._instance = cls.__new__(cls)
+        return cls._instance
+    
+    
+    @property
+    def max_size(self):
+        return self._max_size
+
+
+    @max_size.setter
+    def max_size(self, size_in_bytes : int):
+        new_size = size_in_bytes * 1024 * 1024
+        self._max_size = new_size
+
 

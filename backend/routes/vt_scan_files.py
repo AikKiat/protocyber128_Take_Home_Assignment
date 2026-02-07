@@ -1,0 +1,95 @@
+from fastapi import APIRouter, UploadFile, File, status, HTTPException
+from utils.config import SystemSettings
+from typing import Optional
+from services.vt_scan_files import upload_file_to_vt_db, get_quick_file_report_from_hash, get_analysis_for_filename
+
+
+router = APIRouter(prefix="/vt", tags=["VirusTotal"])
+
+FILE_UPLOAD_MAX_SIZE = SystemSettings.get_instance().max_size
+
+@router.post("/upload-complete") #WORKS
+async def full_scan(file: UploadFile = File(...), password: Optional[str] = None):
+    
+    if file.size > FILE_UPLOAD_MAX_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size is too big."
+        )
+
+    try:
+        result = await upload_file_to_vt_db(file=file, password=password)
+            
+        return {"status" : status.HTTP_200_OK, "result" : result}
+        """
+        returns:
+        {
+            "status" : 200
+            "results": {
+                    analysis_id: "....",
+                    filename: "..."
+                } 
+        }  
+        """
+            
+    except Exception as e:
+        raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error, failed to reach endpoint , {e}"
+        ) 
+
+
+    
+@router.post("/upload-quick")  #WORKS
+async def quick_lookup_hash(file : UploadFile):
+
+    if file.size > FILE_UPLOAD_MAX_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size is too big."
+        )
+
+    try:
+        result = await get_quick_file_report_from_hash(file=file)
+
+        return {"status" : status.HTTP_200_OK, "result" : result}
+    
+        """
+            returns: 
+            {
+                "status" : 200
+                "result": File Object from VirusTotal API
+            }
+        """
+
+    except Exception as e:
+        raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error, failed to reach endpoint, {e}"
+            ) 
+    
+
+
+
+
+
+@router.get("/current-analysis/{filename}") #WORKS
+async def get_analysis( filename : str):
+    try:
+        result = await get_analysis_for_filename(filename = filename)
+        return {"status" : status.HTTP_200_OK, "result" : result}
+    
+        """
+        returns: 
+        {
+            "status" : 200
+            "result": Analysis Object from VirusTotal API
+        }
+        """
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to reach backend endpoint due to : {e}"
+        )
+    

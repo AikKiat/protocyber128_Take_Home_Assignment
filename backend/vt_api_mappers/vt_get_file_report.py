@@ -1,11 +1,5 @@
 
 
-from pydantic import BaseModel, Field
-from constants import Catergory, Status, ThreatVerdict, ThreatSeverityLevel, SandboxCategory
-from typing_extensions import Dict, List
-
-
-
 #Response Body for GET /analyses/{id}
 
 #==================
@@ -132,119 +126,116 @@ from typing_extensions import Dict, List
         # num_av_detections: <int> Number of regular AV detections if available.
         # has_bad_sandbox_verdicts: <bool>: The file has been identified as malicious in dynamic analysis.
 
+from typing import Optional, List, Dict
+from vt_api_mappers.vt_base_mapper_model import VTBaseModel
+from constants import SandboxCategory, ThreatVerdict, ThreatSeverityLevel
 
 
-class AnalysisResultMapper(BaseModel):
-    date: int
-    results: Dict
-    category: Catergory
-    engine_name: str
-    engine_update: str 
-    engine_version:str 
-    method: str 
-    result: str 
-    stats: Dict 
-    confirmed_timeout: Dict = Field(alias='confirmed-timeout') 
-    failure: int 
-    harmless: int
-    malicious: int 
-    suspicious: int 
-    timeout: int 
-    type_unsupported: int = Field(alias='type-supported') 
-    undetected: int 
-    status: Status
+class MainIcon(VTBaseModel):
+    raw_md5: Optional[str] = None
+    dhash: Optional[str] = None
+
+class SandboxVerdict(VTBaseModel):
+    category: Optional[SandboxCategory] = None
+    confidence: Optional[int] = None
+    malware_classification: Optional[List[str]] = None
+    malware_names: Optional[List[str]] = None
+    sandbox_name: Optional[str] = None
 
 
-class FileReportMapper(BaseModel):
-    capabilities_tags: List[str]
-    creation_date: int
-    downloadable: bool
-    first_submission_date: int
-    last_analysis_date: int
-    last_analysis_results: dict
-    last_analysis_stats: dict
-    last_modification_date: int
-    last_submission_date: int
-    main_icon: MainIcon
-    md5: str
-    meaningful_name: str
-    names: List[str]
-    reputation: int
-    sandbox_verdicts: SandboxVerdict
-    sha1: str
-    sha256: str
-    sigma_analysis_summary: Dict
-    size: int
-    tags: List[str]
-    times_submitted: int
-    tlsh: str
-    permhash: str
-    total_votes: TotalVotes
-    type_description: str
-    type_extension: str
-    type_tag: str
-    type_tags: List[str]
-    unique_sources: int
-    vhash: int
-    crowdsourced_ai_results : CrowdSourcedAIResults
-    analysis : str
-    source: str
+
+class TotalVotes(VTBaseModel):
+    harmless: int = 0
+    malicious: int = 0
+
+class ThreatSeverityData(VTBaseModel):
+    popular_threat_category: Optional[str] = None
+    type_tag: Optional[str] = None
+
+    has_similar_files_with_detections: Optional[bool] = None
+    is_matched_by_crowdsourced_yara_with_detections: Optional[bool] = None
+    has_vulnerabilities: Optional[bool] = None
+    can_be_detonated: Optional[bool] = None
+    has_legit_tag: Optional[bool] = None
+
+    num_gav_detections: Optional[int] = None
+    num_av_detections: Optional[int] = None
+
+    has_execution_parents_with_detections: Optional[bool] = None
+    has_dropped_files_with_detections: Optional[bool] = None
+    has_contacted_ips_with_detections: Optional[bool] = None
+    has_contacted_domains_with_detections: Optional[bool] = None
+    has_contacted_urls_with_detections: Optional[bool] = None
+    has_embedded_ips_with_detections: Optional[bool] = None
+    has_embedded_domains_with_detections: Optional[bool] = None
+    has_embedded_urls_with_detections: Optional[bool] = None
+
+    has_malware_configs: Optional[bool] = None
+    has_references: Optional[bool] = None
+    belongs_to_threat_actor: Optional[bool] = None
+    belongs_to_bad_collection: Optional[bool] = None
+
+    has_bad_sandbox_verdicts: Optional[bool] = None
+
+class ThreatSeverity(VTBaseModel):
+    last_analysis_date: Optional[int] = None
+    threat_severity_level: Optional[ThreatSeverityLevel] = None
+    level_description: Optional[str] = None
+    version: Optional[int] = None
+    threat_severity_data: Optional[ThreatSeverityData] = None
+
+class FileAttributes(VTBaseModel):
+    md5: Optional[str] = None
+    sha1: Optional[str] = None
+    sha256: Optional[str] = None
+
+    size: Optional[int] = None
+    type_description: Optional[str] = None
+    type_extension: Optional[str] = None
+    type_tag: Optional[str] = None
+    type_tags: Optional[List[str]] = None
+
+    names: Optional[List[str]] = None
+    meaningful_name: Optional[str] = None
+
+    creation_date: Optional[int] = None
+    first_submission_date: Optional[int] = None
+    last_submission_date: Optional[int] = None
+    last_analysis_date: Optional[int] = None
+    last_modification_date: Optional[int] = None
+
+    last_analysis_stats: Optional[Dict] = None
+    last_analysis_results: Optional[Dict] = None
+
+    reputation: Optional[int] = None
+    total_votes: Optional[TotalVotes] = None
+
+    tags: Optional[List[str]] = None
+    capabilities_tags: Optional[List[str]] = None
+    sandbox_verdicts: Optional[Dict[str, SandboxVerdict]] = None
+
+    main_icon: Optional[MainIcon] = None
+    tlsh: Optional[str] = None
+    permhash: Optional[str] = None
+    vhash: Optional[str] = None
+    unique_sources: Optional[int] = None
+    times_submitted: Optional[int] = None
+
+    threat_verdict: Optional[ThreatVerdict] = None
+    threat_severity: Optional[ThreatSeverity] = None
+
+
+
+class FileResponsePayload(VTBaseModel):
     id: str
-    threat_verdict: ThreatVerdict
-    threat_severity: ThreatSeverity
+    type: str
+    attributes: FileAttributes
 
 
 
-class MainIcon(BaseModel):
-    raw_md5 : str
-    dhash : str
-
-class SandboxVerdict(BaseModel):
-    category: SandboxCategory
-    confidence : int
-    malware_classification: List[str]
-    malware_names: List[str]
-    sandbox_name: str
 
 
-class TotalVotes(BaseModel):
-    harmless : int
-    malicious : int
-
-class CrowdSourcedAIResults(BaseModel):
-    analysis : str
-    source : str
-    id : str
 
 
-class ThreatSeverity(BaseModel):
-    last_analysis_date : int
-    threat_severity_level : ThreatSeverityLevel
-    level_description : str
-    version : int
-    threat_severity_data : ThreatSeverityData
 
 
-class ThreatSeverityData(BaseModel):
-    popular_threat_category:str 
-    type_tag:str 
-    has_similar_files_with_detections:bool 
-    is_matched_by_crowdsourced_yara_with_detections:bool 
-    has_vulnerabilities: bool 
-    can_be_detonated:bool 
-    has_legit_tag:bool 
-    num_gav_detections:int 
-    has_execution_parents_with_detections:bool 
-    has_dropped_files_with_detections:bool 
-    has_contacted_ips_with_detections:bool  
-    has_contacted_domains_with_detections:bool
-    has_contacted_urls_with_detections:bool
-    has_embedded_ips_with_detections:bool 
-    has_embedded_domains_with_detections:bool 
-    has_embedded_urls_with_detections : bool
-    has_malware_configs : bool
-    has_references : bool
-    belongs_to_threat_actor : bool
-    belongs_to_bad_collection :bool
-    num_av_detections : int 
-    has_bad_sandbox_verdicts : bool
