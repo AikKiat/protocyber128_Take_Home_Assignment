@@ -12,7 +12,7 @@ def build_ai_call():
 
     return graph.compile()
 
-def run_ai_call(raw_result : str):
+def run_ai(raw_result : str):
     initial_state : State = {
         "raw_result" : raw_result,
         "summarised_result" : ""

@@ -26,36 +26,16 @@ class VTCache:
 
 
 
-    # ---------- File Analysis Record ----------
-    def set_filename_analysis_object(self, file_uuid: str, obj: dict):
-        self.redis.setex(f"vt:analysis:{file_uuid}", 3600, json.dumps(obj))
+    def set_saved_object(self, file_uuid: str, json: dict):
+        self.redis.setex(f"vt:{file_uuid}", 3600, json)
 
-    def get_filename_analysis_object(self, file_uuid: str):
-        data = self.redis.get(f"vt:analysis:{file_uuid}")
+    def get_saved_object(self, file_uuid: str):
+        data = self.redis.get(f"vt:{file_uuid}")
         if data is None:
-            print(f"[REDIS CACHE] Data is none for file_uuid of {file_uuid} under full analysis objects.")
+            print(f"[REDIS CACHE] Data is none for file_uuid of {file_uuid}.")
             return None
         
         data = json.loads(data)
         if isinstance(data, str):
-            data = json.loads(data)
-        return data
-
-
-
-    # ---------- File Object Record ----------
-    def set_filename_file_object(self, file_uuid: str, obj: dict):
-        self.redis.setex(f"vt:file:{file_uuid}", 3600, json.dumps(obj))
-
-
-    def get_filename_file_object(self, file_uuid: str):
-        data = json.loads(self.redis.get(f"vt:file:{file_uuid}"))
-        if data is None:
-            print(f"[REDIS CACHE SERVICE] Data is None for given file_uuid of {file_uuid} under file objects.")
-            return None
-        
-        data = json.loads(data)
-        if isinstance(data, str): #sometimes, the first json.loads() doesnt convert to dict yet, but simply removes the double slashes "//" between the fields.
-            #A second json.loads() converts fully to dict.
             data = json.loads(data)
         return data

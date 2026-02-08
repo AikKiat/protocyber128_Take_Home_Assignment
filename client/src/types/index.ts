@@ -18,7 +18,7 @@ export interface AnalysisResponse {
     filename: string;
     uuid: string;
     found: boolean;
-    result : string | AnalysisObject; 
+    result : string | AnalysisObject;
 }
 
 
@@ -43,6 +43,8 @@ export interface AnalysisAttributes {
 }
 
 export type AnalysisStatus = 'completed' | 'queued' | 'in-progress';
+
+
 
 export interface EngineResult {
   category: string;
@@ -120,9 +122,55 @@ export interface FileAttributes {
   vhash?: string | null;
   unique_sources?: number;
   times_submitted?: number;
+
   threat_verdict?: string | null;
-  threat_severity?: any;
+  threat_severity?: ThreatSeverity; // ✅ FIXED
 }
+
+
+export interface ThreatSeverity {
+  last_analysis_date?: number;
+  threat_severity_level?: ThreatSeverityLevel;
+  level_description?: string;
+  version?: number;
+  threat_severity_data?: ThreatSeverityData;
+}
+
+
+export type ThreatSeverityLevel = "SEVERITY_NONE" | "SEVERITY_LOW" | "SEVERITY_MEDIUM" | "SEVERITY_HIGH"| "SEVERITY_UNKNOWN"
+
+
+//THREAT SEVERITY
+export interface ThreatSeverityData {
+  popular_threat_category?: string;
+  type_tag?: string;
+
+  has_similar_files_with_detections?: boolean;
+  is_matched_by_crowdsourced_yara_with_detections?: boolean;
+  has_vulnerabilities?: boolean;
+  can_be_detonated?: boolean;
+  has_legit_tag?: boolean;
+
+  num_gav_detections?: number;
+  num_av_detections?: number;
+
+  has_execution_parents_with_detections?: boolean;
+  has_dropped_files_with_detections?: boolean;
+  has_contacted_ips_with_detections?: boolean;
+  has_contacted_domains_with_detections?: boolean;
+  has_contacted_urls_with_detections?: boolean;
+  has_embedded_ips_with_detections?: boolean;
+  has_embedded_domains_with_detections?: boolean;
+  has_embedded_urls_with_detections?: boolean;
+
+  has_malware_configs?: boolean;
+  has_references?: boolean;
+  belongs_to_threat_actor?: boolean;
+  belongs_to_bad_collection?: boolean;
+
+  has_bad_sandbox_verdicts?: boolean;
+}
+
 
 // File History Item (For browser in-memory storage only)
 export interface FileHistoryItem {
@@ -133,66 +181,162 @@ export interface FileHistoryItem {
   scanMode: UploadMode;
 }
 
-// Context Builders (Key information)
-export interface FileContext {
-  fileIdentity: {
-    name?: string;
-    type?: string;
-    extension?: string;
-    size_bytes?: number;
+
+
+
+//CONTEXT DATA FOR FRONTEND PRESENTATION
+
+export interface ResultContext {
+  raw: ScanResult | null;
+  filename: string | null;
+
+  isFile: boolean;
+  isAnalysis: boolean;
+
+  file?: FileContext;
+  analysis?: AnalysisContext;
+}
+
+
+
+export interface ThreatSignals {
+  detection: {
+    percentage: number;
+    level: 'safe' | 'warning' | 'danger';
+    malicious: number;
+    suspicious: number;
+    total: number;
   };
+
+  reputation: {
+    verdict?: string | null;
+    isHighRisk: boolean;
+    confidence: number; // 0–100 heuristic
+  };
+
+  final: {
+    level: 'safe' | 'warning' | 'danger';
+    explanation: string;
+  };
+}
+
+
+
+export interface FileContext {
+  identity: {
+    filename: string;
+    meaningfulName?: string;
+    typeDescription?: string;
+    extension?: string;
+    sizeBytes?: number;
+  };
+
   hashes: {
     md5?: string;
+    sha1?: string;
     sha256?: string;
+    tlsh?: string;
+    vhash?: string;
+    permhash?: string;
   };
+
   reputation: {
-    score?: number;
-    votes?: {
+    score: number;
+    communityVotes?: {
       harmless: number;
       malicious: number;
     };
   };
-  analysis_summary?: AnalysisStats;
-  threat_indicators: {
-    sandbox_verdicts?: any;
-    threat_verdict?: string | null;
-    threat_severity?: any;
-  };
-  tags?: string[];
-}
 
-export interface AnalysisContext {
-  analysis_status: AnalysisStatus;
-  scan_date: number;
-  engine_summary: {
-    malicious: number;
-    suspicious: number;
-    undetected: number;
-    unsupported: number;
-    failures: number;
+  submissions: {
+    timesSubmitted?: number;
+    uniqueSources?: number;
   };
-  flagged_engines: Array<{
+
+  timeline: {
+    creationDate?: number | null;
+    firstSubmissionDate?: number;
+    lastSubmissionDate?: number;
+    lastAnalysisDate?: number;
+  };
+
+  detections: {
+    engines: {
+      malicious: number;
+      suspicious: number;
+      harmless: number;
+      undetected: number;
+      unsupported?: number;
+      total: number;
+    };
+    threatPercentage: number;
+    threatLevel: 'safe' | 'warning' | 'danger';
+  };
+
+  threatSeverity?: {
+    level?: ThreatSeverityLevel;
+    description?: string;
+    indicators?: ThreatSeverityData;
+  };
+
+  tags?: string[];
+  typeTags?: string[];
+
+  sandboxVerdicts?: Array<{
     engine: string;
     category: string;
-    method?: string;
   }>;
+
+  knownNames?: string[];
 }
+
+
+export interface AnalysisContext {
+  identity: {
+    id: string;
+    filename?: string | null;
+  };
+
+  status: {
+    state: 'completed' | 'queued' | 'in-progress';
+    scanDate: number;
+  };
+
+  detections: {
+    engines: {
+      malicious: number;
+      suspicious: number;
+      harmless: number;
+      undetected: number;
+      unsupported: number;
+      failures: number;
+      total: number;
+    };
+    threatPercentage: number;
+    threatLevel: 'safe' | 'warning' | 'danger';
+  };
+
+  flaggedEngines: Array<{
+    engine: string;
+    category: 'malicious' | 'suspicious';
+    method?: string;
+    result?: string | null;
+  }>;
+
+  timeouts?: {
+    timeout?: number;
+    confirmedTimeout?: number;
+  };
+}
+
 
 
 
 
 export type SavedFileResultsResponse = {
-  [Mode in UploadMode]: AnalysisObject | FileObject;
+  status : string;
+  result : FileObject | AnalysisObject;
 };
-
-export type ModeSelectionResult ={
-  toggle_mode : string;
-  result : AnalysisObject | FileObject;
-}
-
-
-
-
 
 // AI Summary
 export interface AISummaryResponse {

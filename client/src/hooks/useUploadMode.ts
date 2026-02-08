@@ -7,10 +7,9 @@ export function useUploadMode() {
 
   const toggleUploadMode = async (
     mode: UploadMode,
-    fetchResult: boolean,
   ): Promise<ModeSelectionResult | null> => {
     setUploadMode(mode);
-    const response = await changeUploadMode(mode, fetchResult);
+    const response = await changeUploadMode(mode);
     return response ?? null;
   };
 

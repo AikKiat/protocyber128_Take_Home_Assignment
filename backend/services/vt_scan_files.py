@@ -10,15 +10,12 @@ from repository.parse_analysis_object_result import parse_analysis_object
 from repository.parse_file_object_result import parse_file_object
 from repository.file_uploads_record import (
     check_in_upload_records, 
-    retrieve_full_results, 
-    retrieve_hash_results, 
     add_filename_analysis_id_pair, 
     get_analysis_id_for_uuid,
-    get_filename_for_uuid,
-    store_result_from_file_hash,
-    store_result_from_full_analysis,
     add_to_uuid_filename_record,
-    set_current_file_uuid
+    set_current_file_uuid,
+    retrieve_saved_result,
+    store_result
     )
 
 from vt_api_mappers.vt_post_upload_file import FileUploadResponsePayload
@@ -54,7 +51,7 @@ async def upload_file_to_vt_db(file : UploadFile, password : str):
     set_current_file_uuid(file_uuid=file_uuid) #set the current filename
     
     if check_in_upload_records(file_uuid = file_uuid):
-        analysis_json = retrieve_full_results(file_uuid=file_uuid)
+        analysis_json = retrieve_saved_result(file_uuid=file_uuid)
         if not analysis_json:
             raise ResourceNotFound(f"json of result full analysis object for file_uuid of {file_uuid} not in Redis cache.")
         analysis_object = parse_analysis_object(analysis_json)
@@ -102,7 +99,7 @@ async def upload_file_to_vt_db(file : UploadFile, password : str):
 
     add_filename_analysis_id_pair(file_uuid=file_uuid, analysis_id=analysis_id)
 
-    return {"filename" : filename, "uuid" : file_uuid, "found": False, "result": analysis_id}
+    return {"filename" : filename.split("|")[0], "uuid" : file_uuid, "found": False, "result": analysis_id}
 
 
 async def get_analysis_for_file_uuid(file_uuid : str):
@@ -134,7 +131,7 @@ async def get_analysis_for_file_uuid(file_uuid : str):
     response.raise_for_status()
 
     analysis_object = parse_analysis_object(response_json=response.json()["data"])
-    store_result_from_full_analysis(file_uuid=file_uuid, result=analysis_object) #we store into cache, and send over to frontend at the same time.
+    store_result(file_uuid=file_uuid, result=analysis_object) #we store into cache, and send over to frontend at the same time.
 
     return analysis_object
 
@@ -155,7 +152,7 @@ async def get_quick_file_report_from_hash(file : UploadFile):
     set_current_file_uuid(file_uuid=file_uuid) #set the current filename
 
     if check_in_upload_records(file_uuid = file_uuid):
-        hash_json = retrieve_hash_results(file_uuid=file_uuid)
+        hash_json = retrieve_saved_result(file_uuid=file_uuid)
         if not hash_json:
             raise ResourceNotFound(f"json of result file object for file_uuid of {file_uuid} not in Redis cache.")
         
@@ -168,22 +165,29 @@ async def get_quick_file_report_from_hash(file : UploadFile):
     print("Cache was a miss. Sending file hash to VT to do a scan.")
 
     file_hash = retrieve_file_hash(file=file)
+    print(file_hash)
 
     url = f"{BASE_URL}/files/{file_hash}"
-    
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.get(url, headers=headers)
-    
-    if response.status_code == 404:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"File with hash {file_hash} not found in VirusTotal database"
-        )
-    
-    response.raise_for_status()
 
-    file_object = parse_file_object(response_json=response.json()["data"])
-    store_result_from_file_hash(file_uuid=file_uuid, result=file_object) #store into cache, and send result to frontend as well
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(url, headers=headers)
+    
+        if response.status_code == 404:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"File with hash {file_hash} not found in VirusTotal database"
+            )
+    
+        response.raise_for_status()
 
-    return {"filename" : filename, "uuid": file_uuid, "found" : False, "result" : file_object}
+        file_object = parse_file_object(response_json=response.json()["data"])
+        store_result(file_uuid=file_uuid, result=file_object) #store into cache, and send result to frontend as well
+
+        return {"filename" : filename.split("|")[0], "uuid": file_uuid, "found" : False, "result" : file_object}
+
+    except Exception as e:
+        print("error", e)
+        raise RuntimeError(f"Could not get a quick hash lookup due to: {e}")
+
 

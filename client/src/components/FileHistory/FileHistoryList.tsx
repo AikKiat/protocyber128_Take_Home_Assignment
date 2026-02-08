@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Typography, Paper } from '@mui/material';
 import HistoryIcon from '@mui/icons-material/History';
 import { FileHistoryCard } from './FileHistoryCard';
@@ -6,15 +5,11 @@ import type { FileHistoryItem } from '../../types';
 
 interface FileHistoryListProps {
   history: FileHistoryItem[];
-  onSelectFile: (uuid: string) => void;
+  onSelectFile: (uuid: string, filename : string) => void;
   selectedUUID?: string;
 }
 
-export const FileHistoryList: React.FC<FileHistoryListProps> = ({
-  history,
-  onSelectFile,
-  selectedUUID,
-}) => {
+export default function FileHistoryList({history, onSelectFile, selectedUUID} : FileHistoryListProps){
   return (
     <Box sx={{ mt: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>

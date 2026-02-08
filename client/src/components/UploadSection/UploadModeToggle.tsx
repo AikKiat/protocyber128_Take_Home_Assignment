@@ -6,14 +6,14 @@ import type { UploadMode } from '../../types';
 
 interface UploadModeToggleProps {
   mode: UploadMode;
-  onChange: (mode: UploadMode, toFetch : boolean) => Promise<void>;
+  onChange: (mode: UploadMode) => Promise<void>;
 }
 
 export const UploadModeToggle: React.FC<UploadModeToggleProps> = ({ mode, onChange }) => {
   const handleChange = async (_: React.MouseEvent<HTMLElement>, newMode: UploadMode | null) => {
     if (newMode !== null) {
       try {
-        await onChange(newMode, true);
+        await onChange(newMode);
       } catch (error) {
         console.error('Failed to change upload mode:', error);
       }

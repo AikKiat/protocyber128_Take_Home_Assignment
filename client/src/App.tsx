@@ -9,34 +9,31 @@ import SecurityIcon from '@mui/icons-material/Security';
 import { UploadModeToggle } from './components/UploadSection/UploadModeToggle';
 import { FileDropzone } from './components/UploadSection/FileDropzone';
 import { StatusBadge } from './components/ResultsPanel/StatusBadge';
-import { FileInfo } from './components/ResultsPanel/FileInfo';
-import { ScanStatsChart } from './components/ResultsPanel/ScanStatsChart';
-import { ActionButtons } from './components/ResultsPanel/ActionButtons';
+import FileInfo from './components/ResultsPanel/FileInfo';
+import AnalysisInfo from './components/ResultsPanel/AnalysisInfo';
+import ScanStatsChart from './components/ResultsPanel/ScanStatsChart';
+import ActionButtons from './components/ResultsPanel/ActionButtons';
 import { AISummaryModal } from './components/ResultsPanel/AISummaryModal';
-import { FileHistoryList } from './components/FileHistory/FileHistoryList';
+import FileHistoryList from './components/FileHistory/FileHistoryList';
 
 // Hooks
-import { useUploadMode } from './hooks/useUploadMode';
 import { useFileHistory } from './hooks/useFileHistory';
 import { useUpload } from './hooks/useUpload';
 import { useAnalysis } from './hooks/useAnalysis';
-import { useAISummary } from './hooks/useAiSummary';
-
-// APIs
-import { selectFile } from './api/files_api';
+import { useAISummary } from './hooks/useAISummary';
+import { useResultContext } from './hooks/useResultContext';
+import { useSelectFile } from './hooks/useSelectFile';
 
 // Utils
-import { buildFileContext, buildAnalysisContext } from './utils/contextExtractor';
 import { getFileExtension } from './utils/formatters';
 
 // Types
-import type {
-  FileContext,
-  AnalysisContext,
-  ScanResult,
-  AnalysisObject,
-  FileObject,
-  SavedFileResultsResponse
+import {
+  type ScanResult,
+  type AnalysisObject,
+  type FileObject,
+  type FileContext,
+  type UploadMode
 } from './types';
 
 function App() {
@@ -46,16 +43,24 @@ function App() {
   // Results state
   const [currentResult, setCurrentResult] = useState<ScanResult | null>(null);
   const [currentUUID, setCurrentUUID] = useState<string>('');
+  const [currentfilename, setCurrentFilename] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadMode, setUploadMode] = useState<UploadMode>("full");
 
   // Custom hooks
-  const { uploadMode, toggleUploadMode } = useUploadMode();
   const { history, addFile } = useFileHistory();
   const upload = useUpload(uploadMode);
   const analysis = useAnalysis(currentResult, currentUUID);
   const ai = useAISummary();
+  const resultContext = useResultContext(currentResult, currentfilename);
+  const fileSelector = useSelectFile();
 
+
+  //For theme
   const theme = createTheme({
+    typography: {
+      fontFamily: ['Saira',].join(','),
+    },
     palette: {
       mode: darkMode ? 'dark' : 'light',
       primary: {
@@ -73,16 +78,9 @@ function App() {
     },
   });
 
-  // Handle upload mode change
-  const handleModeChange = useCallback(
-    async (mode: 'quick' | 'full', toFetch: boolean) => {
-      const response = await toggleUploadMode(mode, toFetch);
-      if (response?.result) {
-        setCurrentResult(response.result);
-      }
-    },
-    [toggleUploadMode]
-  );
+  // Handle upload mode change. Here, we use a useCallBack() 
+  //to make sure that we reuse the same results of the function for the same arugment values, unless they change 
+  // --> then we will proceed to invoke its inner mechanisms.
 
   // Handle file upload
   const handleFileUpload = useCallback(
@@ -92,6 +90,7 @@ function App() {
         const result = await upload.uploadFile(file);
         setCurrentResult(result.result);
         setCurrentUUID(result.uuid);
+        setCurrentFilename(result.filename);
 
         addFile({
           uuid: result.uuid,
@@ -109,27 +108,30 @@ function App() {
 
   // Handle file selection from history
   const handleSelectFile = useCallback(
-    async (uuid: string) => {
+    async (uuid: string, filename : string) => {
       setError(null);
       setCurrentUUID(uuid);
+      setCurrentFilename(filename);
 
-      try {
-        const response: SavedFileResultsResponse = await selectFile(uuid);
+      const response = await fileSelector.selectFileByUUID(uuid, filename);
 
-        if (response.full) {
-          await handleModeChange('full', false);
-          setCurrentResult(response.full);
-        } else if (response.quick) {
-          await handleModeChange('quick', false);
-          setCurrentResult(response.quick);
-        } else {
-          setError('Both results from hash-based and full scan are null. Please try again.');
-        }
-      } catch (error: any) {
-        setError('Failed to load file data. Please try again.');
+      if ('error' in response) {
+        setError(response.error);
+        return;
       }
+
+      const { result, mode} = response;
+      setCurrentResult(result as ScanResult);
+
+      addFile({
+        uuid,
+        filename,
+        timestamp: Date.now(),
+        fileType: getFileExtension(filename),
+        scanMode: mode,
+      });
     },
-    [handleModeChange]
+    [fileSelector, addFile, setUploadMode]
   );
 
   // Handle refresh analysis
@@ -155,27 +157,19 @@ function App() {
     }
   }, [ai]);
 
-  // Extract context for display
-  let fileContext: FileContext | null = null;
-  let analysisContext: AnalysisContext | null = null;
-
-  if (currentResult) {
-    switch (currentResult.type) {
-      case 'file':
-        fileContext = buildFileContext(currentResult as FileObject);
-        break;
-      case 'analysis':
-        analysisContext = buildAnalysisContext(currentResult as AnalysisObject);
-        break;
-      default:
-        throw new Error('Unexpected value for <type> attribute of FileObject or AnalysisObject');
-    }
-  }
+  
+  const handleUploadModeChange = useCallback(async (mode: UploadMode) => {
+    setUploadMode(mode);
+  }, []);
 
   return (
+    <>
+    {/* For dark and bright theme*/}
     <ThemeProvider theme={theme}>
+
       <CssBaseline />
       <Container maxWidth="lg" sx={{ py: 4 }}>
+        
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -201,7 +195,7 @@ function App() {
           <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
             📤 Upload File
           </Typography>
-          <UploadModeToggle mode={uploadMode} onChange={handleModeChange} />
+          <UploadModeToggle mode={uploadMode} onChange={handleUploadModeChange} />
           <FileDropzone onFileSelect={handleFileUpload} mode={uploadMode} loading={upload.uploading} />
         </Paper>
 
@@ -209,19 +203,21 @@ function App() {
         {currentResult && (
           <Box sx={{ mb: 4 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
-              📊 Scan Results
+              🧪 Scan Results
             </Typography>
 
             {/* Success Message */}
             <Alert severity="success" sx={{ mb: 2 }}>
-              ✅ Upload successful!
+              💻 Upload successful!
             </Alert>
 
             {/* File Object Results */}
-            {currentResult.type === 'file' && fileContext && (
+            {resultContext.isFile && resultContext.file as FileContext &&  resultContext.file &&(
               <>
-                <FileInfo context={fileContext} />
-                {fileContext.analysis_summary && (
+                <FileInfo 
+                file={resultContext.file}
+                />
+                {(resultContext.raw as FileObject).attributes.last_analysis_stats && (
                   <Box sx={{ mb: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                       <Typography variant="subtitle1" fontWeight={600}>
@@ -229,27 +225,37 @@ function App() {
                       </Typography>
                       <StatusBadge status="completed" />
                     </Box>
-                    <ScanStatsChart stats={fileContext.analysis_summary} />
+
+                    {/* <ScanStatsChart
+                    stats={(resultContext.raw as FileObject).attributes.last_analysis_stats!}
+                    threatLevel={resultContext.file.detections.threatLevel}
+                    engineResults={
+                      (resultContext.raw as FileObject).attributes.last_analysis_results
+                    }
+                  /> */}
                   </Box>
                 )}
               </>
             )}
 
             {/* Analysis Object Results */}
-            {currentResult.type === 'analysis' && analysisContext && (
+            {resultContext.isAnalysis && resultContext.analysis && (
               <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    Status:
-                  </Typography>
-                  <StatusBadge status={analysisContext.analysis_status} />
-                </Box>
+                <AnalysisInfo
+                  analysis={resultContext.analysis}
+                />
 
-                {analysisContext.analysis_status === 'completed' && (
-                  <ScanStatsChart stats={(currentResult as AnalysisObject).attributes.stats} />
+                {resultContext.analysis.status.state === 'completed' && (
+                  <ScanStatsChart 
+                    stats={(resultContext.raw as AnalysisObject).attributes.stats}
+                    threatLevel={resultContext.analysis.detections.threatLevel}
+                    engineResults={
+                      (resultContext.raw as AnalysisObject).attributes.results
+                    }
+                  />
                 )}
 
-                {analysisContext.analysis_status !== 'completed' && (
+                {resultContext.analysis.status.state !== 'completed' && (
                   <Alert severity="info" sx={{ mb: 2 }}>
                     Analysis in progress... Click "Refresh Analysis" to check for updates.
                   </Alert>
@@ -259,6 +265,7 @@ function App() {
 
             {/* Action Buttons */}
             <ActionButtons
+              currentMode={uploadMode}
               onRefresh={handleRefreshAnalysis}
               onAISummary={handleAISummary}
               refreshing={analysis.refreshing}
@@ -279,6 +286,7 @@ function App() {
         <AISummaryModal open={ai.open} onClose={ai.close} summary={ai.summary} />
       </Container>
     </ThemeProvider>
+    </>
   );
 }
 

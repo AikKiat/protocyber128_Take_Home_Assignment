@@ -27,7 +27,7 @@ class FileUploadsRecord:
 
     uuid_filename_mappings : Dict[str, str] = {} #maps uuid -> filename
 
-    _vt_upload_result : FileResponsePayload | AnalysisResponsePayload = None  #anytime, this variable can embody both the result from parsing fully to file, or from file's hash.
+    _vt_upload_result : Dict = None  #anytime, this variable can embody both the result from parsing fully to file, or from file's hash.
     _ai_summary : str = None
     _current_uuid : str = None
 
@@ -105,24 +105,16 @@ class FileUploadsRecord:
 
     #Cache logic (Using methods exposed for Redis Cache)
 
-    def get_analysis_object(self, file_uuid : str):
+    def get_saved_results_object(self, file_uuid : str):
         vtcache = VTCache()
-        return vtcache.get_filename_analysis_object(file_uuid=file_uuid)
-
-    def get_file_object(self, file_uuid : str):
-        vtcache = VTCache()
-        return vtcache.get_filename_file_object(file_uuid=file_uuid)
+        return vtcache.get_saved_object(file_uuid=file_uuid)
 
 
 
     #We store into cache, and update the current showing one at the same time.
-    def store_analysis_result(self, file_uuid, analysis_result):
+    def store_result(self, file_uuid, result_json):
         vtcache = VTCache()
-        vtcache.set_filename_analysis_object(file_uuid=file_uuid, obj=analysis_result)
-
-    def store_file_hash_result(self, file_uuid, result_from_hash):
-        vtcache = VTCache()
-        vtcache.set_filename_file_object(file_uuid=file_uuid, obj=result_from_hash)
+        vtcache.set_saved_object(file_uuid=file_uuid, json=result_json)
 
 
     

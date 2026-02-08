@@ -2,12 +2,12 @@ import React from 'react';
 import { Paper, Box, Typography, Button, Chip } from '@mui/material';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import { formatFileSize, formatDate } from '../../utils/formatters';
 import type { FileHistoryItem } from '../../types';
+import { formatDate } from '../../utils/formatters';
 
 interface FileHistoryCardProps {
   item: FileHistoryItem;
-  onSelect: (uuid: string) => void;
+  onSelect: (uuid: string, filename : string) => void;
   isSelected?: boolean;
 }
 
@@ -38,9 +38,11 @@ export const FileHistoryCard: React.FC<FileHistoryCardProps> = ({
           <Typography variant="body1" fontWeight={600} gutterBottom>
             {item.filename}
           </Typography>
+          <Typography variant="body1" fontWeight={400} gutterBottom>
+            {item.scanMode.toUpperCase()}
+          </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
             <Chip label={item.fileType} size="small" color="primary" variant="outlined" />
-            <Chip label={item.scanMode === 'quick' ? 'Quick Scan' : 'Full Scan'} size="small" variant="outlined" />
             <Typography variant="caption" color="text.secondary">
               {formatDate(item.timestamp)}
             </Typography>
@@ -51,7 +53,7 @@ export const FileHistoryCard: React.FC<FileHistoryCardProps> = ({
           variant={isSelected ? 'contained' : 'outlined'}
           size="small"
           startIcon={<VisibilityIcon />}
-          onClick={() => onSelect(item.uuid)}
+          onClick={() => onSelect(item.uuid, item.filename)}
         >
           {isSelected ? 'Selected' : 'Select'}
         </Button>

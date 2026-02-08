@@ -12,7 +12,7 @@ def result_parser(state : State):
 
     system_message = Prompts.RESULT_SUMMARISER_PROMPT.value
 
-    response = llm.invoke(HumanMessage(content=human_message), SystemMessage(content=system_message))
+    response = llm.invoke([HumanMessage(content=human_message), SystemMessage(content=system_message)])
 
     content = response.content
 

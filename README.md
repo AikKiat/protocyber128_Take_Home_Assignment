@@ -120,3 +120,89 @@ We look forward to seeing your innovative solutions and thoughtful designs!
    - 1. POST /vt/upload/complete (Upload a file to VT datastores to get checked by 70+ antivirus tools)
    - 2. POST /vt/upload-quick (Upload the file's hash to VT, for a preliminary analysis after cross-checking with similar historical results)
    - 3. GET /vt/analysis/{filename} (Get the analysis state for a given file that was uploaded completely to VT datastore.)
+
+---
+
+## Project Overview
+
+- **Frontend:** React + TypeScript (Vite) housed in `client/` with Material UI for visuals.
+- **Backend:** FastAPI service in `backend/` orchestrating uploads to VirusTotal plus GenAI explanations.
+- **Caching:** Redis stores file UUID mappings, pending analysis IDs, and cached VT responses.
+- **Packaging:** Dockerfiles for each service plus a Compose stack to wire everything together.
+
+Refer to [README_instructions.md](README_instructions.md) for the full operational playbook.
+
+## Getting Started (Local Development)
+
+1. **Install prerequisites**
+   - Node.js ≥ 20
+   - Python ≥ 3.11
+   - Redis (only if you run the backend outside Docker)
+
+2. **Configure environment variables**
+   ```bash
+   cp backend/.env.example backend/.env
+   cp client/.env.example client/.env
+   # fill in VT/OpenAI keys and Redis password before running services
+   ```
+
+3. **Run backend**
+   ```bash
+   cd backend
+   python -m venv .venv && source .venv/bin/activate
+   pip install -r requirements.txt
+   uvicorn main:app --reload --port 8000
+   ```
+
+4. **Run frontend**
+   ```bash
+   cd client
+   npm install
+   npm run dev -- --host 0.0.0.0 --port 5173
+   ```
+
+## Docker & Compose Workflows
+
+1. **Build standalone images**
+   ```bash
+   docker build -t protocyber-backend -f backend/Dockerfile backend
+   docker build -t protocyber-frontend -f client/Dockerfile client
+   ```
+
+2. **Bring up the full stack**
+   ```bash
+   export VT_API_KEY=...
+   export OPENAI_API_KEY=...
+   export REDIS_PASSWORD=supersecure
+   docker compose up --build
+   ```
+   - Backend → http://localhost:8000
+   - Frontend → http://localhost:4173
+   - Redis → localhost:6379 (password protected via env vars)
+
+3. **Tear down**
+   ```bash
+   docker compose down
+   ```
+
+## Deployment on AWS EC2 (High Level)
+
+1. Launch Amazon Linux 2023 instance (t3.small recommended) and install Docker + Compose.
+2. Pull this repo (or docker images from a registry) onto the instance.
+3. Copy production `.env` files (not committed) and run `docker compose up -d --build`.
+4. Harden security groups, add HTTPS (ACM + ALB or Nginx reverse proxy), and monitor via CloudWatch.
+
+## CI/CD
+
+GitHub Actions (`.github/workflows/ci.yml`) now runs on every push / pull request:
+1. **Backend job** – installs Python deps and compiles the FastAPI project to catch syntax errors early.
+2. **Frontend job** – runs `npm ci` + `npm run build` to ensure the Vite build stays green.
+3. **Docker build job** – builds backend & frontend images to validate Dockerfiles.
+
+Extend the pipeline with deploy jobs once you’re ready to push images to ECR / update EC2 automatically.
+
+## Security Notes
+
+- Rotate any API keys that were ever committed (VirusTotal, OpenAI). Generate new keys in their respective portals, update your local `.env`, and revoke/delete the exposed ones.
+- Keep `.env` files out of git; only `.env.example` templates live in the repo.
+- Redis is internal to Docker Compose and password protected; if you expose it, gate access via security groups or TLS.

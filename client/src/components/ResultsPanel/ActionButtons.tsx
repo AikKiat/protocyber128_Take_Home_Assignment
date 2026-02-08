@@ -2,8 +2,10 @@ import React from 'react';
 import { Box, Button, CircularProgress } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import type { UploadMode } from '../../types';
 
 interface ActionButtonsProps {
+  currentMode : UploadMode;
   onRefresh: () => void;
   onAISummary: () => void;
   refreshing: boolean;
@@ -11,15 +13,10 @@ interface ActionButtonsProps {
   loadingAI: boolean;
 }
 
-export const ActionButtons: React.FC<ActionButtonsProps> = ({
-  onRefresh,
-  onAISummary,
-  refreshing,
-  canShowAISummary,
-  loadingAI,
-}) => {
+export default function ActionButtons({currentMode, onRefresh, onAISummary, refreshing, canShowAISummary, loadingAI} : ActionButtonsProps){
   return (
     <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+      {currentMode === 'full' &&
       <Button
         variant="outlined"
         startIcon={refreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
@@ -28,7 +25,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         fullWidth
       >
         {refreshing ? 'Refreshing...' : 'Refresh Analysis'}
-      </Button>
+      </Button>}
 
       <Button
         variant="contained"

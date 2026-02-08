@@ -9,11 +9,13 @@
 import hashlib
 from fastapi import UploadFile
 import tempfile, os, shutil
+from .temp_storage import get_tmp_upload_dir
 
 def retrieve_file_hash(file : UploadFile) -> str:
 
     try:
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_dir = get_tmp_upload_dir()
+        with tempfile.NamedTemporaryFile(delete=False, dir=tmp_dir) as tmp:
             shutil.copyfileobj(file.file, tmp)
             temporary_path = tmp.name
 
@@ -27,7 +29,7 @@ def retrieve_file_hash(file : UploadFile) -> str:
         print(f"Failed to hash file, {e}")
 
     finally: #clean up, remove file from temporary storage
-        if temporary_path and os.path.exists(temporary_path):
+        if 'temporary_path' in locals() and temporary_path and os.path.exists(temporary_path):
             os.unlink(temporary_path)
 
 
