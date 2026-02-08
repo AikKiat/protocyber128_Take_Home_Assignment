@@ -1,7 +1,7 @@
 #Key system configurations, for example max file size accepted, and unknown file policies
 
 
-from enum import Enum
+from constants import Types
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -10,6 +10,8 @@ load_dotenv()
 class SystemSettings:
 
     _instance : SystemSettings = None
+
+    _current_focused_mode : str = Types.FULL_UPLOAD.value #defaulted to full upload
 
     #Max allowed size is 50mb
     _max_size = 50 * 1024 * 1024
@@ -28,6 +30,17 @@ class SystemSettings:
     def max_size(self):
         return self._max_size
 
+
+    @property
+    def current_focused_mode(self):
+        return self._current_focused_mode
+    
+    @current_focused_mode.setter
+    def current_focused_mode(self, value):
+        if value == Types.FULL_UPLOAD.value or value == Types.HASH_BASED.value:
+            self._current_focused_mode = value
+        else:
+            raise ValueError("[CONFIG] Value for m global focused mode switch is invalid.")
 
     @max_size.setter
     def max_size(self, size_in_bytes : int):

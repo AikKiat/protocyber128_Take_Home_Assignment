@@ -34,7 +34,7 @@ export interface AnalysisObject{
 }
 
 
-//Analysis Object (Key information)
+//Analysis Attributes (Key information)
 export interface AnalysisAttributes {
   date: number;
   status: AnalysisStatus;
@@ -177,6 +177,22 @@ export interface AnalysisContext {
     method?: string;
   }>;
 }
+
+
+
+
+export type SavedFileResultsResponse = {
+  [Mode in UploadMode]: AnalysisObject | FileObject;
+};
+
+export type ModeSelectionResult ={
+  toggle_mode : string;
+  result : AnalysisObject | FileObject;
+}
+
+
+
+
 
 // AI Summary
 export interface AISummaryResponse {

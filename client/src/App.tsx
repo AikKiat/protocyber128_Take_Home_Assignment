@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef } from 'react';
-import {Container, Box, Typography, Paper, Alert, CssBaseline, ThemeProvider, createTheme, IconButton} from '@mui/material';
+import { useState, useCallback } from 'react';
+import {Container,Box,Typography,Paper, Alert,CssBaseline,ThemeProvider,createTheme,IconButton
+} from '@mui/material';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import SecurityIcon from '@mui/icons-material/Security';
@@ -14,48 +15,46 @@ import { ActionButtons } from './components/ResultsPanel/ActionButtons';
 import { AISummaryModal } from './components/ResultsPanel/AISummaryModal';
 import { FileHistoryList } from './components/FileHistory/FileHistoryList';
 
+// Hooks
+import { useUploadMode } from './hooks/useUploadMode';
+import { useFileHistory } from './hooks/useFileHistory';
+import { useUpload } from './hooks/useUpload';
+import { useAnalysis } from './hooks/useAnalysis';
+import { useAISummary } from './hooks/useAiSummary';
+
 // APIs
-import { uploadQuick, uploadFull, getCurrentAnalysis } from './api/virustotal.api';
 import { selectFile } from './api/files_api';
-import { getAISummary } from './api/ai.api';
 
-
+// Utils
 import { buildFileContext, buildAnalysisContext } from './utils/contextExtractor';
 import { getFileExtension } from './utils/formatters';
 
 // Types
-import type {UploadMode, FileHistoryItem, FileResponse, FileContext, AnalysisContext, ScanResult, APIResponse, AnalysisObject, FileObject,} from './types';
+import type {
+  FileContext,
+  AnalysisContext,
+  ScanResult,
+  AnalysisObject,
+  FileObject,
+  SavedFileResultsResponse
+} from './types';
 
 function App() {
   // Theme state
   const [darkMode, setDarkMode] = useState(true);
 
-  // Upload state
-  const [uploadMode, setUploadMode] = useState<UploadMode>('quick');
-  const [uploading, setUploading] = useState(false);
-
   // Results state
   const [currentResult, setCurrentResult] = useState<ScanResult | null>(null);
-  const [currentFilename, setCurrentFilename] = useState<string | null>(null);
-  const [currentUUID, setCurrentUUID] = useState<string>("");
-
-  // File history
-  const [fileHistory, setFileHistory] = useState<FileHistoryItem[]>([]);
-
-  // AI Summary
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [loadingAI, setLoadingAI] = useState(false);
-  const [showAIModal, setShowAIModal] = useState(false);
-
-  // Refresh state
-  const [refreshing, setRefreshing] = useState(false);
-
-  const isAnalysisComplete = useRef<boolean>(false);
-
-  // Error state
+  const [currentUUID, setCurrentUUID] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
-  // Theme
+  // Custom hooks
+  const { uploadMode, toggleUploadMode } = useUploadMode();
+  const { history, addFile } = useFileHistory();
+  const upload = useUpload(uploadMode);
+  const analysis = useAnalysis(currentResult, currentUUID);
+  const ai = useAISummary();
+
   const theme = createTheme({
     palette: {
       mode: darkMode ? 'dark' : 'light',
@@ -74,173 +73,102 @@ function App() {
     },
   });
 
+  // Handle upload mode change
+  const handleModeChange = useCallback(
+    async (mode: 'quick' | 'full', toFetch: boolean) => {
+      const response = await toggleUploadMode(mode, toFetch);
+      if (response?.result) {
+        setCurrentResult(response.result);
+      }
+    },
+    [toggleUploadMode]
+  );
 
   // Handle file upload
   const handleFileUpload = useCallback(
     async (file: File) => {
       setError(null);
-      setUploading(true);
-
       try {
-        if (uploadMode === 'quick') {
-          // Quick scan
-          const response : APIResponse<FileResponse> = await uploadQuick(file); //An API Response, where the result attribute is FileResponse object
-          const fileResponseBody : FileResponse = response.result;
+        const result = await upload.uploadFile(file);
+        setCurrentResult(result.result);
+        setCurrentUUID(result.uuid);
 
-          // Extract UUID from file ID
-          const uuid = fileResponseBody.uuid;
-          const filename = fileResponseBody.filename;
-
-          // Update state
-          setCurrentResult(fileResponseBody.result as FileObject);
-          setCurrentFilename(filename);
-          setCurrentUUID(uuid);
-
-          setFileHistory((prev) => [
-            {
-              uuid,
-              filename,
-              timestamp: Date.now(),
-              fileType: getFileExtension(filename),
-              scanMode: 'quick',
-            },
-            ...prev.filter((f) => f.uuid !== uuid),
-          ]);
-
-        } 
-        else {
-
-          // Full scan
-          const response = await uploadFull(file);
-          const fullAnalysisResponseBody = response.result;
-
-          const bFoundInPastScans = fullAnalysisResponseBody.found;
-          const uuid = fullAnalysisResponseBody.uuid;
-          const filename = fullAnalysisResponseBody.filename;
-
-          //If there is a past full scan result for this particular file, show it!
-          if (bFoundInPastScans && fullAnalysisResponseBody.result as AnalysisObject){
-            setCurrentResult(fullAnalysisResponseBody.result as AnalysisObject);
-          }
-
-          else {
-            // Otherwise, the file has been uploaded to virus total. Returned in analysis id to query its progress.
-            const analysisObjectResponse = await getCurrentAnalysis(uuid);
-            setCurrentResult(analysisObjectResponse.result as AnalysisObject);
-          }
-          
-          setCurrentFilename(filename);
-          setCurrentUUID(uuid);
-
-          setFileHistory((prev) => [
-            {
-              uuid,
-              filename,
-              timestamp: Date.now(),
-              fileType: getFileExtension(filename),
-              scanMode: 'quick',
-            },
-            ...prev.filter((f) => f.uuid !== uuid),
-          ]);
-
-        }
+        addFile({
+          uuid: result.uuid,
+          filename: result.filename,
+          timestamp: Date.now(),
+          fileType: getFileExtension(result.filename),
+          scanMode: uploadMode,
+        });
       } catch (error: any) {
-        console.error('Upload error:', error);
-        setError(error.response?.data?.detail || 'Failed to upload file. Please try again.');
-      } finally {
-        setUploading(false);
+        setError(error.message || 'Failed to upload file');
       }
     },
-    [uploadMode]
+    [upload, uploadMode, addFile]
   );
 
   // Handle file selection from history
-  const handleSelectFile = useCallback(async (uuid: string) => {
-    setError(null);
-    setCurrentUUID(uuid);
+  const handleSelectFile = useCallback(
+    async (uuid: string) => {
+      setError(null);
+      setCurrentUUID(uuid);
 
-    try {
-      const result = await selectFile(uuid);
-      setCurrentResult(result);
+      try {
+        const response: SavedFileResultsResponse = await selectFile(uuid);
 
-      // Extract filename from result if possible
-      // if ('attributes' in result) {
-      //   if (result.type === 'file') {
-      //     setCurrentFilename((result as FileResponse).attributes.meaningful_name || null);
-      //   }
-      // }
-    } catch (error: any) {
-      console.error('Select file error:', error);
-      setError('Failed to load file data. Please try again.');
-    }
-  }, []);
+        if (response.full) {
+          await handleModeChange('full', false);
+          setCurrentResult(response.full);
+        } else if (response.quick) {
+          await handleModeChange('quick', false);
+          setCurrentResult(response.quick);
+        } else {
+          setError('Both results from hash-based and full scan are null. Please try again.');
+        }
+      } catch (error: any) {
+        setError('Failed to load file data. Please try again.');
+      }
+    },
+    [handleModeChange]
+  );
 
-  // Over here, handle when the user clicks the refresh button to get latest analysis status (for full upload)
+  // Handle refresh analysis
   const handleRefreshAnalysis = useCallback(async () => {
-    if (!currentFilename) return;
-
     setError(null);
-    setRefreshing(true);
-
     try {
-      const response = await getCurrentAnalysis(currentUUID);
-      setCurrentResult(response.result);
+      const updated = await analysis.refresh();
+      if (updated) {
+        setCurrentResult(updated);
+      }
     } catch (error: any) {
-      console.error('Refresh error:', error);
       setError('Failed to refresh analysis. Please try again.');
-    } finally {
-      setRefreshing(false);
     }
-  }, [currentFilename]);
-
-
-
+  }, [analysis]);
 
   // Handle AI summary
   const handleAISummary = useCallback(async () => {
     setError(null);
-    setLoadingAI(true);
-
     try {
-      const response = await getAISummary();
-      setAiSummary(response.result);
-      setShowAIModal(true);
+      await ai.generate();
     } catch (error: any) {
-      console.error('AI summary error:', error);
       setError('Failed to generate AI summary. Please try again.');
-    } finally {
-      setLoadingAI(false);
     }
-  }, []);
-
-
-
-  // Determine if analysis is complete
-  if(currentResult){
-    if(currentResult.type === 'file'){ //It is a file object. So automatically set analysis complete to true. It is not queued like the full upload case.
-      isAnalysisComplete.current = true;
-    }
-    else if(currentResult.type === 'analysis' && (currentResult as AnalysisObject).attributes.status === 'completed'){
-      isAnalysisComplete.current = true;
-    }
-  } //Else, it will remain as false and we will just show "No results" for hash-based upload window, or "Get latest" for full upload window.
-
-
+  }, [ai]);
 
   // Extract context for display
   let fileContext: FileContext | null = null;
   let analysisContext: AnalysisContext | null = null;
 
-  if ((currentResult)) {
-    switch(currentResult.type){
-      case "file":
+  if (currentResult) {
+    switch (currentResult.type) {
+      case 'file':
         fileContext = buildFileContext(currentResult as FileObject);
         break;
-      case "analysis":
+      case 'analysis':
         analysisContext = buildAnalysisContext(currentResult as AnalysisObject);
         break;
       default:
-        throw new Error("Unexpected value for <type> attribute of FileObject or AnalysisObject")
+        throw new Error('Unexpected value for <type> attribute of FileObject or AnalysisObject');
     }
   }
 
@@ -262,9 +190,9 @@ function App() {
         </Box>
 
         {/* Error Alert */}
-        {error && (
+        {(error || upload.error) && (
           <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 3 }}>
-            {error}
+            {error || upload.error}
           </Alert>
         )}
 
@@ -273,8 +201,8 @@ function App() {
           <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
             📤 Upload File
           </Typography>
-          <UploadModeToggle mode={uploadMode} onChange={setUploadMode} />
-          <FileDropzone onFileSelect={handleFileUpload} mode={uploadMode} loading={uploading} />
+          <UploadModeToggle mode={uploadMode} onChange={handleModeChange} />
+          <FileDropzone onFileSelect={handleFileUpload} mode={uploadMode} loading={upload.uploading} />
         </Paper>
 
         {/* Results Panel */}
@@ -333,22 +261,22 @@ function App() {
             <ActionButtons
               onRefresh={handleRefreshAnalysis}
               onAISummary={handleAISummary}
-              refreshing={refreshing}
-              canShowAISummary={isAnalysisComplete.current}
-              loadingAI={loadingAI}
+              refreshing={analysis.refreshing}
+              canShowAISummary={analysis.isComplete}
+              loadingAI={ai.loading}
             />
           </Box>
         )}
 
         {/* File History */}
         <FileHistoryList
-          history={fileHistory}
+          history={history}
           onSelectFile={handleSelectFile}
           selectedUUID={currentUUID}
         />
 
         {/* AI Summary Modal */}
-        <AISummaryModal open={showAIModal} onClose={() => setShowAIModal(false)} summary={aiSummary} />
+        <AISummaryModal open={ai.open} onClose={ai.close} summary={ai.summary} />
       </Container>
     </ThemeProvider>
   );

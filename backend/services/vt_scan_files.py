@@ -18,7 +18,7 @@ from repository.file_uploads_record import (
     store_result_from_file_hash,
     store_result_from_full_analysis,
     add_to_uuid_filename_record,
-    set_current_filename
+    set_current_file_uuid
     )
 
 from vt_api_mappers.vt_post_upload_file import FileUploadResponsePayload
@@ -51,7 +51,7 @@ async def upload_file_to_vt_db(file : UploadFile, password : str):
     filename = file.filename+"|full"
     file_uuid = str(uuid.uuid3(namespace=uuid.NAMESPACE_OID, name=filename))
 
-    set_current_filename(filename=filename) #set the current filename
+    set_current_file_uuid(file_uuid=file_uuid) #set the current filename
     
     if check_in_upload_records(file_uuid = file_uuid):
         analysis_json = retrieve_full_results(file_uuid=file_uuid)
@@ -114,9 +114,8 @@ async def get_analysis_for_file_uuid(file_uuid : str):
     Returns detailed analysis results including scan status and AV engine verdicts.
     """
 
-    filename = get_filename_for_uuid(file_uuid=file_uuid)
     analysis_id = get_analysis_id_for_uuid(file_uuid=file_uuid)
-    set_current_filename(filename=filename) #set the current filename
+    set_current_file_uuid(file_uuid=file_uuid) #set the current filename
     #No need to check if in upload record, since this service is to get the analysis result already. So filename should be registered.
 
     
@@ -150,10 +149,10 @@ async def get_quick_file_report_from_hash(file : UploadFile):
     """
 
     filename = file.filename+"|quick"
-    set_current_filename(filename=filename) #set the current filename
 
     file_uuid = str(uuid.uuid3(namespace=uuid.NAMESPACE_OID, name=filename))
     print("uuid:", file_uuid)
+    set_current_file_uuid(file_uuid=file_uuid) #set the current filename
 
     if check_in_upload_records(file_uuid = file_uuid):
         hash_json = retrieve_hash_results(file_uuid=file_uuid)

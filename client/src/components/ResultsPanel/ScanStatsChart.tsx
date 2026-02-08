@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Paper, Grid, LinearProgress } from '@mui/material';
+import { Box, Typography, Paper, Grid2, LinearProgress } from '@mui/material';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import type { AnalysisStats } from '../../types';
 import { getTotalScanCount, getThreatPercentage } from '../../utils/contextExtractor';
@@ -45,8 +45,8 @@ export const ScanStatsChart: React.FC<ScanStatsChartProps> = ({ stats }) => {
           No scan results available
         </Typography>
       ) : (
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+        <Grid2 container spacing={3}>
+          <Grid2 size={{ xs: 12, md: 6 }}>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
@@ -67,9 +67,9 @@ export const ScanStatsChart: React.FC<ScanStatsChartProps> = ({ stats }) => {
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
-          </Grid>
+          </Grid2>
 
-          <Grid item xs={12} md={6}>
+          <Grid2 size={{ xs: 12, md: 6 }}>
             <Box>
               {/* Threat Level */}
               <Box sx={{ mb: 3 }}>
@@ -114,8 +114,8 @@ export const ScanStatsChart: React.FC<ScanStatsChartProps> = ({ stats }) => {
                 )}
               </Box>
             </Box>
-          </Grid>
-        </Grid>
+          </Grid2>
+        </Grid2>
       )}
     </Paper>
   );

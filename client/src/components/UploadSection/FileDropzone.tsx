@@ -41,7 +41,7 @@ export const FileDropzone: React.FC<FileDropzoneProps> = ({ onFileSelect, mode, 
       if (files && files.length > 0) {
         await onFileSelect(files[0]);
       }
-      // Reset input value to allow re-uploading the same file
+      // Reset input value over here to allow re-uploading of files
       e.target.value = '';
     },
     [onFileSelect]

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ToggleButtonGroup, ToggleButton, Box, Typography } from '@mui/material';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
 import SearchIcon from '@mui/icons-material/Search';
@@ -6,15 +6,27 @@ import type { UploadMode } from '../../types';
 
 interface UploadModeToggleProps {
   mode: UploadMode;
-  onChange: (mode: UploadMode) => void;
+  onChange: (mode: UploadMode, toFetch : boolean) => Promise<void>;
 }
 
 export const UploadModeToggle: React.FC<UploadModeToggleProps> = ({ mode, onChange }) => {
-  const handleChange = (_: React.MouseEvent<HTMLElement>, newMode: UploadMode | null) => {
+  const handleChange = async (_: React.MouseEvent<HTMLElement>, newMode: UploadMode | null) => {
     if (newMode !== null) {
-      onChange(newMode);
+      try {
+        await onChange(newMode, true);
+      } catch (error) {
+        console.error('Failed to change upload mode:', error);
+      }
     }
   };
+
+  useEffect(()=>{
+    if(mode === "quick"){
+      // Mode changed to quick scan
+    } else {
+      // Mode changed to full scan
+    }
+  },[mode])
 
   return (
     <Box sx={{ mb: 3 }}>

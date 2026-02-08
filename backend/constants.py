@@ -56,7 +56,7 @@ class SandboxCategory(Enum):
 
 
 class Types(Enum):
-    HASH_BASED = "hash"
+    HASH_BASED = "quick"
     FULL_UPLOAD = "full"
 
 

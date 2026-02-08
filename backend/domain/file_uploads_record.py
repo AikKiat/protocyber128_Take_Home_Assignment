@@ -29,7 +29,7 @@ class FileUploadsRecord:
 
     _vt_upload_result : FileResponsePayload | AnalysisResponsePayload = None  #anytime, this variable can embody both the result from parsing fully to file, or from file's hash.
     _ai_summary : str = None
-    _current_filename : str = None
+    _current_uuid : str = None
 
     def __init__(self):
         return ("This is a Singleton. Call it via get_instance() instead.")
@@ -77,13 +77,13 @@ class FileUploadsRecord:
 
 
     @property
-    def current_filename(self):
-        return self._current_filename
+    def current_uuid(self):
+        return self._current_uuid
 
 
-    @current_filename.setter
-    def current_filename(self, value):
-        self._current_filename = value
+    @current_uuid.setter
+    def current_uuid(self, value):
+        self._current_uuid = value
     
     @property
     def upload_summary(self):
