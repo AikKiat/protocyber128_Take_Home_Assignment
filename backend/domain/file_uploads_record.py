@@ -1,8 +1,6 @@
 
-from typing_extensions import Dict, List
+from typing_extensions import Dict
 from custom_exceptions import ResourceNotFound
-from vt_api_mappers.vt_get_analysis import AnalysisResponsePayload
-from vt_api_mappers.vt_get_file_report import FileResponsePayload
 
 from utils.vt_redis_cache import VTCache
 
@@ -10,7 +8,7 @@ from utils.vt_redis_cache import VTCache
 #For uploading the file to VT Database.
 class FileUploadsRecord:
 
-    _instance : FileUploadsRecord = None
+    _instance = None
 
     """
     Filename --> Full upload record, hash brief record

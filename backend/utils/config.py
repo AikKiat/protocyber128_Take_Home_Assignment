@@ -9,12 +9,14 @@ load_dotenv()
 
 class SystemSettings:
 
-    _instance : SystemSettings = None
+    _instance = None
 
     _current_focused_mode : str = Types.FULL_UPLOAD.value #defaulted to full upload
 
     #Max allowed size is 50mb
     _max_size = 50 * 1024 * 1024
+
+    _query_interval = 10 #every 10 seconds
 
     def __init__(self):
         return ("This is a singleton. Access it via get_instance() instead")
@@ -29,6 +31,10 @@ class SystemSettings:
     @property
     def max_size(self):
         return self._max_size
+    
+    @property
+    def query_interval(self):
+        return self._query_interval
 
 
     @property
@@ -46,5 +52,12 @@ class SystemSettings:
     def max_size(self, size_in_bytes : int):
         new_size = size_in_bytes * 1024 * 1024
         self._max_size = new_size
+
+    @query_interval.setter
+    def query_interval(self, interval : int):
+        if isinstance(interval, int):
+            self._query_interval = interval
+        else:
+            raise ValueError("[CONFIG] Wrong value for query interval.")
 
 

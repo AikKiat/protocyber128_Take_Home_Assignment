@@ -41,7 +41,8 @@ export function useUpload(uploadMode: UploadMode) {
       const response = await uploadFull(file);
       const body = response.result;
 
-      if (body.found && body.result) {
+      //This is only the case if we returned a cache result.
+      if (body.found && body.result as AnalysisObject) {
         return {
           fileNotFound: false,
           uuid: body.uuid,
@@ -50,6 +51,8 @@ export function useUpload(uploadMode: UploadMode) {
         } as const;
       }
 
+      //Else...we need to get the current analysis of this newly uploaded file.
+
       const analysis = await getCurrentAnalysis(body.uuid);
       return {
         fileNotFound: false,
@@ -57,6 +60,7 @@ export function useUpload(uploadMode: UploadMode) {
         filename: body.filename,
         result: analysis.result as AnalysisObject,
       } as const;
+
     } catch (err: any) {
       setError(
         err.response?.data?.detail ??

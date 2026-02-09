@@ -33,16 +33,6 @@ export default function FileInfo({ file }: FileInfoProps) {
   return (
     <Paper sx={{ p: 3 }}>
       {/* ================= HEADER ================= */}
-      <Typography variant="h5" fontWeight={700}>
-        {identity.filename}
-      </Typography>
-
-      <Typography variant="body2" color="text.secondary">
-        {identity.typeDescription} ·{' '}
-        {identity.sizeBytes
-          ? `${(identity.sizeBytes / 1024).toFixed(1)} KB`
-          : 'Unknown size'}
-      </Typography>
 
       <Chip
         label={`${detections.threatPercentage}% engines flagged this file`}

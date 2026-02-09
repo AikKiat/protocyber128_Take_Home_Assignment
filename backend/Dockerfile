@@ -36,10 +36,10 @@ COPY --from=base /usr/local /usr/local
 COPY . .
 
 # Create a dedicated non-root user for security
-RUN useradd --create-home --shell /bin/bash appuser && \
+RUN useradd --uid 10001 --create-home --shell /bin/bash appuser && \
     mkdir -p ${TMP_UPLOAD_DIR} && \
     chown -R appuser:appuser /app && \
-    chmod 700 ${TMP_UPLOAD_DIR}
+    chmod 1777 ${TMP_UPLOAD_DIR}
 
 USER appuser
 

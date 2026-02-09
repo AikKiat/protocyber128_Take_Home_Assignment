@@ -96,6 +96,11 @@ function App() {
       try {
         const result = await upload.uploadFile(file);
         
+        if (!result) {
+          setError('Failed to upload file');
+          return;
+        }
+
         if (result.fileNotFound){
           const message = result.message || 'File not found in VirusTotal database. Please try a full scan instead.';
           setPopupMessage(message);
