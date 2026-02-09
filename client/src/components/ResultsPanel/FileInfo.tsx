@@ -19,7 +19,6 @@ export default function FileInfo({ file }: FileInfoProps) {
     hashes,
     reputation,
     detections,
-    timeline,
     sandboxVerdicts,
     tags,
   } = file;

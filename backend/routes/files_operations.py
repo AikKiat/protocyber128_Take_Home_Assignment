@@ -22,15 +22,4 @@ async def select_file(request : SelectFileRequest):
         raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, details="Failed to get analysis results")
 
     return {"status" : status.HTTP_200_OK, "result" : saved_result}
-
-class ToggleUploadRequest(BaseModel):
-    mode : str
-
-@router.post("/toggle-upload")
-async def select_file(request : ToggleUploadRequest):
-    result = toggle_modes(request.mode)
-    print("result",result)
-    print(f"[FILE OPERATIONS ROUTE] Focused Mode Toggled according to frontend: {result["toggled_mode"]}")
-
-    return {"toggled_mode" : result["toggled_mode"]}
     
