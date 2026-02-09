@@ -135,6 +135,9 @@ export default function ScanStatsChart({ stats, threatLevel, engineResults } : S
                       <TableCell>Engine</TableCell>
                       <TableCell>Status</TableCell>
                       <TableCell>Result</TableCell>
+                      <TableCell>Engine Version</TableCell>
+                      <TableCell>Engine Update Ver</TableCell>
+                      <TableCell>Method</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -153,6 +156,9 @@ export default function ScanStatsChart({ stats, threatLevel, engineResults } : S
                           />
                         </TableCell>
                         <TableCell>{engineVerdict.result || '—'}</TableCell>
+                        <TableCell>{engineVerdict.engine_version || '—'}</TableCell>
+                        <TableCell>{engineVerdict.engine_update || '_'}</TableCell>
+                        <TableCell>{engineVerdict.method || '—'}</TableCell>
                       </TableRow>
                     )})}
                   </TableBody>

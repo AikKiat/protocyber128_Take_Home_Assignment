@@ -23,12 +23,19 @@ export function useUpload(uploadMode: UploadMode) {
 
     try {
       if (uploadMode === "quick") {
-        const response: APIResponse<FileResponse> = await uploadQuick(file);
+        const response : APIResponse<FileResponse> = await uploadQuick(file);
+        if (response.status == 204){
+          return {
+            fileNotFound : true,
+            message: response.message,
+          } as const;
+        }
         return {
+          fileNotFound : false,
           uuid: response.result.uuid,
           filename: response.result.filename,
           result: response.result.result as FileObject,
-        };
+        } as const;
       }
 
       const response = await uploadFull(file);
@@ -36,18 +43,20 @@ export function useUpload(uploadMode: UploadMode) {
 
       if (body.found && body.result) {
         return {
+          fileNotFound: false,
           uuid: body.uuid,
           filename: body.filename,
           result: body.result as AnalysisObject,
-        };
+        } as const;
       }
 
       const analysis = await getCurrentAnalysis(body.uuid);
       return {
+        fileNotFound: false,
         uuid: body.uuid,
         filename: body.filename,
         result: analysis.result as AnalysisObject,
-      };
+      } as const;
     } catch (err: any) {
       setError(
         err.response?.data?.detail ??

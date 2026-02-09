@@ -1,15 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  Paper,
-  Box,
-  Typography,
-  Chip,
-  Stack,
-  Grid,
-  IconButton,
-  Collapse,
-  Divider,
-} from '@mui/material';
+import {Paper,Box,Typography,Chip,Stack,Grid,IconButton,Collapse,Divider} from '@mui/material';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import SecurityIcon from '@mui/icons-material/Security';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -25,19 +15,27 @@ export default function AnalysisInfo({ analysis }: AnalysisInfoProps) {
 
   const { identity, status, detections, flaggedEngines, timeouts } = analysis;
 
-  const threatColor =
-    detections.threatLevel === 'danger'
-      ? 'error'
-      : detections.threatLevel === 'warning'
-      ? 'warning'
-      : 'success';
+  const threatColor = () => {
+    switch(detections.threatLevel){
+      case 'danger':
+        return 'error';
+      case 'warning':
+        return 'warning';
+      default :
+        return 'success';
+    }
+  };
 
-  const threatLabel =
-    detections.threatLevel === 'danger'
-      ? 'MALICIOUS DETECTED'
-      : detections.threatLevel === 'warning'
-      ? 'SUSPICIOUS ACTIVITY'
-      : 'NO THREATS DETECTED';
+  const threatLabel = () =>{
+    switch(detections.threatLevel){
+      case 'danger':
+        return 'MALICIOUS SIGNATURE DETECTED';
+      case 'warning':
+        return 'SUSPICIOUS ACTIVITY';
+      default :
+        return 'NO THREATS DETECTED';
+    }
+  }
 
   const engineSummaryChips = useMemo(
     () => [
@@ -116,8 +114,8 @@ export default function AnalysisInfo({ analysis }: AnalysisInfoProps) {
           <Typography variant="h5" fontWeight={700}>
             Analysis Report
             <Chip
-              label={threatLabel}
-              color={threatColor}
+              label={threatLabel()}
+              color={threatColor()}
               sx={{ ml: 2, fontWeight: 600 }}
             />
           </Typography>
@@ -140,7 +138,7 @@ export default function AnalysisInfo({ analysis }: AnalysisInfoProps) {
             <Chip
               icon={<SecurityIcon />}
               label={`Threat Score: ${detections.threatPercentage}%`}
-              color={threatColor}
+              color={threatColor()}
               size="small"
             />
             <Chip

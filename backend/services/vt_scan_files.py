@@ -58,16 +58,14 @@ async def upload_file_to_vt_db(file : UploadFile, password : str):
         if analysis_object:
             return {"filename" : filename.split("|")[0], "uuid" : file_uuid, "found" : True,  "result": analysis_object}
     
-    print("Cache was a miss. Sending to VT for full scan.")
-
-    add_to_uuid_filename_record(filename=filename, file_uuid= file_uuid) #add to upload record, since it is a new file hitherto unseen.
+    print("[VT_SCAN_FILES_SERVICE] Cache was a miss. Sending to VT for full scan.")
     
     content = await file.read()
     
     if len(content) > 32 * 1024 * 1024:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File size exceeds 32MB. Use /files/upload_url endpoint for larger files."
+            detail="[VT_SCAN_FILES_SERVICE] File size exceeds 32MB. Use /files/upload_url endpoint for larger files."
         )
     
     files = {"file": (file.filename, content, file.content_type)}
@@ -76,30 +74,39 @@ async def upload_file_to_vt_db(file : UploadFile, password : str):
         data["password"] = password
     
     url = f"{BASE_URL}/files"
-    
-    async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(url, headers=headers, files=files, data=data)
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(url, headers=headers, files=files, data=data)
 
-    if response.status_code == 409:
-        # File already exists in the VT database and an error will be thrown by the VT API. So we need to fetch by hash instead.
-        return await get_quick_file_report_from_hash(file)
+            if response.status_code == 409:
+                # File already exists in the VT database and an error will be thrown by the VT API. So we need to fetch by hash instead.
+                return await get_quick_file_report_from_hash(file)
+            
+            if response.status_code == 400:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="[VT_SCAN_FILE_SERVICE] Invalid file or password. Check if ZIP password is correct."
+                )
     
-    if response.status_code == 400:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid file or password. Check if ZIP password is correct."
-        )
+        add_to_uuid_filename_record(filename=filename, file_uuid= file_uuid) #add to upload record, since it is a new file hitherto unseen.
+
     
-    response.raise_for_status()
-    payload = response.json()
-    print(payload)
-    content = FileUploadResponsePayload.model_validate(payload)
-    analysis_id = content.data.id
-    filename = file.filename    
+        response.raise_for_status()
+        payload = response.json()
+        print(payload)
+        content = FileUploadResponsePayload.model_validate(payload)
+        analysis_id = content.data.id
+        filename = file.filename    
 
-    add_filename_analysis_id_pair(file_uuid=file_uuid, analysis_id=analysis_id)
+        add_filename_analysis_id_pair(file_uuid=file_uuid, analysis_id=analysis_id)
 
-    return {"filename" : filename.split("|")[0], "uuid" : file_uuid, "found": False, "result": analysis_id}
+        return {"filename" : filename.split("|")[0], "uuid" : file_uuid, "found": False, "result": analysis_id}
+    
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise RuntimeError(f"[VT_SCAN_FILES_SERVICE] Could not submit file to VT for full analysis. Error : {e}")
 
 
 async def get_analysis_for_file_uuid(file_uuid : str):
@@ -115,25 +122,29 @@ async def get_analysis_for_file_uuid(file_uuid : str):
     set_current_file_uuid(file_uuid=file_uuid) #set the current filename
     #No need to check if in upload record, since this service is to get the analysis result already. So filename should be registered.
 
-    
-
     url = f"{BASE_URL}/analyses/{analysis_id}"
-    
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.get(url, headers=headers)
-    
-    if response.status_code == 404:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Analysis {analysis_id} not found"
-        )
-    
-    response.raise_for_status()
 
-    analysis_object = parse_analysis_object(response_json=response.json()["data"])
-    store_result(file_uuid=file_uuid, result=analysis_object) #we store into cache, and send over to frontend at the same time.
+    try:
+    
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(url, headers=headers)
+        
+        if response.status_code == 404:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Analysis {analysis_id} not found"
+            )
+        
+        response.raise_for_status()
 
-    return analysis_object
+        analysis_object = parse_analysis_object(response_json=response.json()["data"])
+        store_result(file_uuid=file_uuid, result=analysis_object) #we store into cache, and send over to frontend at the same time.
+
+        return analysis_object
+    
+
+    except Exception as e:
+        raise RuntimeError(f"[VT_SCAN_FILES_SERVICE] Failed at runtime to get analysis for this file of file_uuid: {file_uuid}. Error : {e}")
 
 
 async def get_quick_file_report_from_hash(file : UploadFile):
@@ -160,9 +171,7 @@ async def get_quick_file_report_from_hash(file : UploadFile):
         if hash_object:
             return {"filename" : filename.split("|")[0], "uuid": file_uuid, "found" : True, "result" : hash_object}
         
-    add_to_uuid_filename_record(filename=filename, file_uuid= file_uuid) #add to upload record, since it is a new file hitherto unseen.
-        
-    print("Cache was a miss. Sending file hash to VT to do a scan.")
+    print("[VT_SCAN_SERVICE] Cache was a miss. Sending file hash to VT to do a scan.")
 
     file_hash = retrieve_file_hash(file=file)
     print(file_hash)
@@ -174,20 +183,22 @@ async def get_quick_file_report_from_hash(file : UploadFile):
             response = await client.get(url, headers=headers)
     
         if response.status_code == 404:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"File with hash {file_hash} not found in VirusTotal database"
-            )
+            raise ResourceNotFound("[VT_SCAN_SERVICE] File not found in VirusTotal database.")
     
         response.raise_for_status()
 
         file_object = parse_file_object(response_json=response.json()["data"])
         store_result(file_uuid=file_uuid, result=file_object) #store into cache, and send result to frontend as well
 
+        add_to_uuid_filename_record(filename=filename, file_uuid= file_uuid) #add to upload record, since it is a new file hitherto unseen.
+
         return {"filename" : filename.split("|")[0], "uuid": file_uuid, "found" : False, "result" : file_object}
+
+    except ResourceNotFound:
+        raise
 
     except Exception as e:
         print("error", e)
-        raise RuntimeError(f"Could not get a quick hash lookup due to: {e}")
+        raise RuntimeError(f"[VT_SCAN_SERVICE] Could not get a quick hash lookup for file of file_uuid = {file_uuid} due to: {e}")
 
 

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Paper, Box, Typography, Button, Chip } from '@mui/material';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -11,11 +10,7 @@ interface FileHistoryCardProps {
   isSelected?: boolean;
 }
 
-export const FileHistoryCard: React.FC<FileHistoryCardProps> = ({
-  item,
-  onSelect,
-  isSelected = false,
-}) => {
+export default function FileHistoryCard({item, onSelect, isSelected = false} : FileHistoryCardProps){
   return (
     <Paper
       elevation={isSelected ? 4 : 1}

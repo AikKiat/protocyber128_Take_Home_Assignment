@@ -2,6 +2,7 @@
 export interface APIResponse<T> {
   status: number;
   result: T;
+  message?: string;
 }
 
 // Upload modes

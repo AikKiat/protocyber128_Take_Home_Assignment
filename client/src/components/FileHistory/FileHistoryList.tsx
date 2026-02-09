@@ -1,6 +1,6 @@
 import { Box, Typography, Paper } from '@mui/material';
 import HistoryIcon from '@mui/icons-material/History';
-import { FileHistoryCard } from './FileHistoryCard';
+import FileHistoryCard from './FileHistoryCard';
 import type { FileHistoryItem } from '../../types';
 
 interface FileHistoryListProps {

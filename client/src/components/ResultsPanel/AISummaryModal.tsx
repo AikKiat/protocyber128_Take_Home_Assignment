@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -18,7 +17,7 @@ interface AISummaryModalProps {
   summary: string | null;
 }
 
-export const AISummaryModal: React.FC<AISummaryModalProps> = ({ open, onClose, summary }) => {
+export default function AISummaryModal({ open, onClose, summary } : AISummaryModalProps){
   return (
     <Dialog
       open={open}

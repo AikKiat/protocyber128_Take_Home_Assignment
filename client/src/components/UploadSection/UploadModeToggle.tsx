@@ -9,7 +9,7 @@ interface UploadModeToggleProps {
   onChange: (mode: UploadMode) => Promise<void>;
 }
 
-export const UploadModeToggle: React.FC<UploadModeToggleProps> = ({ mode, onChange }) => {
+export default function UploadModeToggle({ mode, onChange } : UploadModeToggleProps){
   const handleChange = async (_: React.MouseEvent<HTMLElement>, newMode: UploadMode | null) => {
     if (newMode !== null) {
       try {

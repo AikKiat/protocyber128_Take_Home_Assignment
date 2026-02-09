@@ -9,7 +9,7 @@ interface FileDropzoneProps {
   loading: boolean;
 }
 
-export const FileDropzone: React.FC<FileDropzoneProps> = ({ onFileSelect, mode, loading }) => {
+export default function FileDropzone({ onFileSelect, mode, loading } : FileDropzoneProps){
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, status, HTTPException
 from utils.config import SystemSettings
 from typing import Optional
+from custom_exceptions import ResourceNotFound
 from services.vt_scan_files import upload_file_to_vt_db, get_quick_file_report_from_hash, get_analysis_for_file_uuid
 
 
@@ -67,6 +68,13 @@ async def quick_lookup_hash(file : UploadFile):
                 "result": File Object from VirusTotal API
             }
         """
+
+    except ResourceNotFound as e:
+        return {
+            "status": status.HTTP_204_NO_CONTENT, 
+            "result": None,
+            "message": str(e)
+        }
 
     except Exception as e:
         raise HTTPException(

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Chip } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
@@ -10,7 +9,7 @@ interface StatusBadgeProps {
   size?: 'small' | 'medium';
 }
 
-export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'medium' }) => {
+export default function StatusBadge({ status, size = 'medium' } : StatusBadgeProps){
   const config = {
     completed: {
       label: 'COMPLETED',

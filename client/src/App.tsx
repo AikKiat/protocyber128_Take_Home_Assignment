@@ -6,15 +6,16 @@ import Brightness7Icon from '@mui/icons-material/Brightness7';
 import SecurityIcon from '@mui/icons-material/Security';
 
 // Components
-import { UploadModeToggle } from './components/UploadSection/UploadModeToggle';
-import { FileDropzone } from './components/UploadSection/FileDropzone';
-import { StatusBadge } from './components/ResultsPanel/StatusBadge';
+import UploadModeToggle from './components/UploadSection/UploadModeToggle';
+import FileDropzone from './components/UploadSection/FileDropzone';
+import StatusBadge from './components/ResultsPanel/StatusBadge';
 import FileInfo from './components/ResultsPanel/FileInfo';
 import AnalysisInfo from './components/ResultsPanel/AnalysisInfo';
 import ScanStatsChart from './components/ResultsPanel/ScanStatsChart';
 import ActionButtons from './components/ResultsPanel/ActionButtons';
-import { AISummaryModal } from './components/ResultsPanel/AISummaryModal';
+import AISummaryModal from './components/ResultsPanel/AISummaryModal';
 import FileHistoryList from './components/FileHistory/FileHistoryList';
+import Popup from './components/Popup';
 
 // Hooks
 import { useFileHistory } from './hooks/useFileHistory';
@@ -47,6 +48,11 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [uploadMode, setUploadMode] = useState<UploadMode>("full");
 
+  // Popup state
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [popupMessage, setPopupMessage] = useState('');
+  const [popupSeverity, setPopupSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
+
   // Custom hooks
   const { history, addFile } = useFileHistory();
   const upload = useUpload(uploadMode);
@@ -78,9 +84,10 @@ function App() {
     },
   });
 
-  // Handle upload mode change. Here, we use a useCallBack() 
-  //to make sure that we reuse the same results of the function for the same arugment values, unless they change 
+  // Here, we use a useCallBack() 
+  // to make sure that we reuse the same results of the function for the same arugment values, unless they change 
   // --> then we will proceed to invoke its inner mechanisms.
+
 
   // Handle file upload
   const handleFileUpload = useCallback(
@@ -88,10 +95,21 @@ function App() {
       setError(null);
       try {
         const result = await upload.uploadFile(file);
+        
+        if (result.fileNotFound){
+          const message = result.message || 'File not found in VirusTotal database. Please try a full scan instead.';
+          setPopupMessage(message);
+          setPopupSeverity('warning');
+          setPopupOpen(true);
+          return;
+        }
+
+        //Else if information can be retrieved about the file via its hash..
         setCurrentResult(result.result);
         setCurrentUUID(result.uuid);
         setCurrentFilename(result.filename);
 
+        //Add to history over here (In-memory list)
         addFile({
           uuid: result.uuid,
           filename: result.filename,
@@ -99,6 +117,7 @@ function App() {
           fileType: getFileExtension(result.filename),
           scanMode: uploadMode,
         });
+
       } catch (error: any) {
         setError(error.message || 'Failed to upload file');
       }
@@ -164,13 +183,9 @@ function App() {
 
   return (
     <>
-    {/* For dark and bright theme*/}
     <ThemeProvider theme={theme}>
-
       <CssBaseline />
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        
-        {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <SecurityIcon sx={{ fontSize: 40, color: 'primary.main', mr: 2 }} />
@@ -226,13 +241,13 @@ function App() {
                       <StatusBadge status="completed" />
                     </Box>
 
-                    {/* <ScanStatsChart
+                    <ScanStatsChart
                     stats={(resultContext.raw as FileObject).attributes.last_analysis_stats!}
                     threatLevel={resultContext.file.detections.threatLevel}
                     engineResults={
                       (resultContext.raw as FileObject).attributes.last_analysis_results
                     }
-                  /> */}
+                  />
                   </Box>
                 )}
               </>
@@ -284,6 +299,14 @@ function App() {
 
         {/* AI Summary Modal */}
         <AISummaryModal open={ai.open} onClose={ai.close} summary={ai.summary} />
+        
+        {/* Popup Notification */}
+        <Popup
+          open={popupOpen}
+          message={popupMessage}
+          severity={popupSeverity}
+          onClose={() => setPopupOpen(false)}
+        />
       </Container>
     </ThemeProvider>
     </>
