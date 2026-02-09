@@ -15,7 +15,6 @@ interface FileInfoProps {
 
 export default function FileInfo({ file }: FileInfoProps) {
   const {
-    identity,
     hashes,
     reputation,
     detections,
