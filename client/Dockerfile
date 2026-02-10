@@ -15,7 +15,8 @@ COPY . .
 # Allow the API URL to be injected at build time (default to /api to support reverse proxying)
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=${VITE_API_URL}
-RUN npm run build
+RUN npm run build 
+#run the actual build command.
 
 # ---------- Runtime stage ----------
 FROM nginx:alpine AS runtime

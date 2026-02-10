@@ -5,6 +5,8 @@
 
 Welcome to the CloudsineAI take-home assignment! This project will help us evaluate your coding skills, problem-solving abilities, and design process. Let's get started!
 
+> 📚 **New to AWS?** Check out [DOCS_INDEX.md](DOCS_INDEX.md) for guided navigation through all documentation!
+
 ---
 
 ## **Objective**
@@ -185,11 +187,39 @@ Refer to [README_instructions.md](README_instructions.md) for the full operation
    docker compose down
    ```
 
-## Deployment on AWS EC2 (High Level)
+## Deployment on AWS EC2
+
+### 📚 Complete Deployment Resources
+
+**First time deploying to AWS?**
+1. 🎓 **Start here:** [AWS_ARCHITECTURE_EXPLAINED.md](AWS_ARCHITECTURE_EXPLAINED.md)
+   - Understand IAM, Security Groups, and Secrets Manager
+   - Learn why AWS is different from Render/Heroku
+   - See complete workflow diagrams
+
+2. � **Understand infrastructure:** [INFRASTRUCTURE_FILES_EXPLAINED.md](INFRASTRUCTURE_FILES_EXPLAINED.md)
+   - What is Nginx and how does it work?
+   - What is AWS WAF and when to use it?
+   - Line-by-line explanation of nginx.conf
+   - Line-by-line explanation of deploy_ec2.sh
+   - Dockerfiles explained
+
+3. 🚀 **Then deploy:** [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+   - Step-by-step EC2 setup (beginner-friendly)
+   - IAM role configuration
+   - Secrets Manager setup
+   - Security group configuration
+
+4. 🤖 **Automate:** [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
+   - GitHub Actions workflow for push-to-deploy
+   - ECR image registry integration
+   - Automated SSH deployment
+
+### Quick High-Level Overview
 
 1. Launch Amazon Linux 2023 instance (t3.small recommended) and install Docker + Compose.
 2. Pull this repo (or docker images from a registry) onto the instance.
-3. Copy production `.env` files (not committed) and run `docker compose up -d --build`.
+3. Fetch secrets from AWS Secrets Manager and run `./scripts/deploy_ec2.sh`.
 4. Harden security groups, add HTTPS (ACM + ALB or Nginx reverse proxy), and monitor via CloudWatch.
 
 ## CI/CD
