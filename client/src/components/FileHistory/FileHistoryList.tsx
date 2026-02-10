@@ -5,11 +5,10 @@ import type { FileHistoryItem } from '../../types';
 
 interface FileHistoryListProps {
   history: FileHistoryItem[];
-  onSelectFile: (uuid: string, filename : string) => void;
-  selectedUUID?: string;
+  onSelectFile: (uuid: string, filename : string) => void;  onViewAISummary?: (uuid: string) => void;  selectedUUID?: string;
 }
 
-export default function FileHistoryList({history, onSelectFile, selectedUUID} : FileHistoryListProps){
+export default function FileHistoryList({ history, onSelectFile, onViewAISummary, selectedUUID }: FileHistoryListProps) {
   return (
     <Box sx={{ mt: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -40,6 +39,7 @@ export default function FileHistoryList({history, onSelectFile, selectedUUID} : 
               key={item.uuid}
               item={item}
               onSelect={onSelectFile}
+              onViewAISummary={onViewAISummary}
               isSelected={item.uuid === selectedUUID}
             />
           ))}

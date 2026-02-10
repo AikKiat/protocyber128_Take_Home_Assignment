@@ -5,6 +5,7 @@ from ai.state import State
 
 
 def build_ai_call():
+    """Build LangGraph workflow using async result parser for SSE streaming."""
     graph = StateGraph(State)
     graph.add_node("result_parser_node", result_parser)
     graph.set_entry_point("result_parser_node")
@@ -12,7 +13,8 @@ def build_ai_call():
 
     return graph.compile()
 
-def run_ai(raw_result : str):
+async def run_ai(raw_result : str):
+    """Run AI workflow asynchronously using LangGraph with SSE streaming support."""
     initial_state : State = {
         "raw_result" : raw_result,
         "summarised_result" : ""
@@ -20,7 +22,7 @@ def run_ai(raw_result : str):
 
     ai_call = build_ai_call()
 
-    output = ai_call.invoke(initial_state)
+    output = await ai_call.ainvoke(initial_state)
     return output
 
 

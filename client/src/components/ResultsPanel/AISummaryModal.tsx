@@ -4,20 +4,24 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  Typography,
   Box,
   IconButton,
+  CircularProgress,
+  Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import FadingText from './FadingText';
 
 interface AISummaryModalProps {
   open: boolean;
   onClose: () => void;
   summary: string | null;
+  status?: string;
+  loading?: boolean;
 }
 
-export default function AISummaryModal({ open, onClose, summary } : AISummaryModalProps){
+export default function AISummaryModal({ open, onClose, summary, status, loading = false } : AISummaryModalProps){
   return (
     <Dialog
       open={open}
@@ -48,21 +52,23 @@ export default function AISummaryModal({ open, onClose, summary } : AISummaryMod
       </DialogTitle>
 
       <DialogContent dividers>
-        {summary ? (
-          <Box>
-            <Typography
-              variant="body1"
-              sx={{
-                whiteSpace: 'pre-wrap',
-                lineHeight: 1.8,
-              }}
-            >
-              {summary}
+        {loading && !summary ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+            <CircularProgress size={40} />
+            <Typography variant="body2" sx={{ mt: 2, color: 'text.secondary' }}>
+              {status || 'Generating AI summary...'}
             </Typography>
+            <Typography variant="caption" sx={{ mt: 1, color: 'text.secondary' }}>
+              You can close this and check back later
+            </Typography>
+          </Box>
+        ) : summary ? (
+          <Box sx={{ fontSize: '1rem', lineHeight: 1.8 }}>
+            <FadingText text={summary} delay={15} />
           </Box>
         ) : (
           <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ p: 4 }}>
-            No summary available
+            No summary available. Click "Generate AI Summary" to create one.
           </Typography>
         )}
       </DialogContent>

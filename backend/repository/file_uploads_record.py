@@ -5,6 +5,7 @@ from vt_api_mappers.vt_get_analysis import AnalysisResponsePayload
 from vt_api_mappers.vt_get_file_report import FileResponsePayload
 from custom_exceptions import ResourceNotFound
 from typing_extensions import Dict
+import json
 
 def check_in_upload_records(file_uuid : str):
     if file_uuid in FileUploadsRecord.get_instance().uuid_filename_mappings:
@@ -21,27 +22,38 @@ def get_analysis_id_for_uuid(file_uuid : str):
 
 
 def store_result(file_uuid, result : FileResponsePayload | AnalysisResponsePayload):
-    result_json = result.model_dump_json()
+    result_json = result.model_dump_json() #returns the json formatted string.
     FileUploadsRecord.get_instance().store_result(file_uuid=file_uuid, result_json=result_json)
     FileUploadsRecord.get_instance().vt_upload_result = result_json
 
 def retrieve_saved_result(file_uuid : str):
     result : Dict | None = FileUploadsRecord.get_instance().get_saved_results_object(file_uuid=file_uuid)
     if result is None:
-        print(f"[FILE OPERATIONS REPOSITORY] Domain Results for file_uuid: {file_uuid} is None. Was the file uploaded?")
+        print(f"[FILE OPERATIONS REPOSITORY] Domain Results for Scan analysis regarding file_uuid: {file_uuid} is None. Was the file uploaded?")
         return None
 
-    FileUploadsRecord.get_instance().vt_upload_result = result
+    FileUploadsRecord.get_instance().vt_upload_result = json.dumps(result) #we want this to be a string, for the AI to parse.
+    return result
 
+def store_ai_summary(file_uuid : str, summary : str):
+    FileUploadsRecord.get_instance().store_ai_summary(file_uuid=file_uuid, summary=summary)
+    FileUploadsRecord.get_instance().vt_ai_summary = summary
+
+def retrieve_saved_ai_summary(file_uuid : str):
+    result : str | None = FileUploadsRecord.get_instance().get_saved_ai_summary(file_uuid=file_uuid)
+    if result is None:
+        print(f"[FILE OPERATIONS REPOSITORY] Domain Results for AI summary regarding file_uuid: {file_uuid} is None. Was an AI summary generated beforehand?")
+        return None
+
+    FileUploadsRecord.get_instance().vt_ai_summary = result
     return result
 
 
+def get_current_ai_summary():
+    return FileUploadsRecord.get_instance().vt_ai_summary
+    
 def get_current_upload_result():
     return FileUploadsRecord.get_instance().vt_upload_result
-
-def set_current_upload_result(upload_result : FileResponsePayload | AnalysisResponsePayload):
-    FileUploadsRecord.get_instance().vt_upload_result = upload_result
-
 
 
 

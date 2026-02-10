@@ -3,6 +3,7 @@ from typing_extensions import Dict
 from custom_exceptions import ResourceNotFound
 
 from utils.vt_redis_cache import VTCache
+import json
 
 
 #For uploading the file to VT Database.
@@ -25,8 +26,8 @@ class FileUploadsRecord:
 
     uuid_filename_mappings : Dict[str, str] = {} #maps uuid -> filename
 
-    _vt_upload_result : Dict = None  #anytime, this variable can embody both the result from parsing fully to file, or from file's hash.
-    _ai_summary : str = None
+    _vt_upload_result : str = None  #anytime, this variable can embody both the result from parsing fully to file, or from file's hash.
+    _vt_ai_summary : str = None #anytime, this variable can embody the summarised result of the AI.
     _current_uuid : str = None
 
     def __init__(self):
@@ -71,7 +72,23 @@ class FileUploadsRecord:
     
     @vt_upload_result.setter
     def vt_upload_result(self, value):
-        self._vt_upload_result = value
+        try:
+            json.loads(value)
+            self._vt_upload_result = value
+        except Exception as e:
+            raise ValueError(f"[FILES UPLOAD RECORD] Upload result is of invalid type. Expected JSON formatted string: {e}")
+
+
+    @property
+    def vt_ai_summary(self):
+        return self._vt_ai_summary
+    
+    @vt_ai_summary.setter
+    def vt_ai_summary(self, value):
+        if isinstance(value, str):
+            self._vt_ai_summary = value
+        else:
+            raise ValueError("[FILE UPLOADS RECORD] AI Summary value to set is of invalid type. Expected string.")
 
 
     @property
@@ -81,15 +98,10 @@ class FileUploadsRecord:
 
     @current_uuid.setter
     def current_uuid(self, value):
-        self._current_uuid = value
-    
-    @property
-    def upload_summary(self):
-        return self._upload_summary
-    
-    @upload_summary.setter
-    def upload_summary(self, value):
-        self.current_upload_summary = value
+        if isinstance(value, str):
+            self._current_uuid = value
+        else:
+            raise ValueError("[FILE UPLOADS RECORD] UUID to set is of invalid type. Expected string.")
 
 
 
@@ -99,20 +111,25 @@ class FileUploadsRecord:
             raise ResourceNotFound("uuid not found in UUID mappings.")
         
         return self.uuid_filename_mappings[file_uuid]
-
-
-    #Cache logic (Using methods exposed for Redis Cache)
+    
 
     def get_saved_results_object(self, file_uuid : str):
         vtcache = VTCache()
         return vtcache.get_saved_object(file_uuid=file_uuid)
-
+    
+    def get_saved_ai_summary(self, file_uuid : str):
+        vtcache = VTCache()
+        return vtcache.get_saved_summary(file_uuid=file_uuid)
 
 
     #We store into cache, and update the current showing one at the same time.
     def store_result(self, file_uuid, result_json):
         vtcache = VTCache()
         vtcache.set_saved_object(file_uuid=file_uuid, json=result_json)
+
+    def store_ai_summary(self, file_uuid, summary):
+        vtcache = VTCache()
+        vtcache.set_saved_summary(file_uuid=file_uuid, summary=summary)
 
 
     

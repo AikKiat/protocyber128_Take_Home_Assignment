@@ -95,11 +95,6 @@ function App() {
       setError(null);
       try {
         const result = await upload.uploadFile(file);
-        
-        if (!result) {
-          setError('Failed to upload file');
-          return;
-        }
 
         if (result.fileNotFound){
           const message = result.message || 'File not found in VirusTotal database. Please try a full scan instead.';
@@ -171,13 +166,36 @@ function App() {
     }
   }, [analysis]);
 
-  // Handle AI summary
+  // Handle AI summary for current result
   const handleAISummary = useCallback(async () => {
-    setError(null);
+    if (!currentUUID) {
+      setError('No file selected for AI summary');
+      return;
+    }
+    
     try {
-      await ai.generate();
+      await ai.generate(currentUUID);
+      
+      // Handle streaming errors
+      if (ai.error) {
+        setError(ai.error);
+      }
     } catch (error: any) {
       setError('Failed to generate AI summary. Please try again.');
+    }
+  }, [ai, currentUUID]);
+
+  // Handle viewing AI summary from history
+  const handleViewAISummary = useCallback(async (uuid: string) => {
+    setError(null);
+    try {
+      await ai.view(uuid);
+      
+      if (ai.error) {
+        setError(ai.error);
+      }
+    } catch (error: any) {
+      setError('Failed to load AI summary. Please try again.');
     }
   }, [ai]);
 
@@ -299,11 +317,18 @@ function App() {
         <FileHistoryList
           history={history}
           onSelectFile={handleSelectFile}
+          onViewAISummary={handleViewAISummary}
           selectedUUID={currentUUID}
         />
 
         {/* AI Summary Modal */}
-        <AISummaryModal open={ai.open} onClose={ai.close} summary={ai.summary} />
+        <AISummaryModal 
+          open={ai.open} 
+          onClose={ai.close} 
+          summary={ai.summary}
+          status={ai.status}
+          loading={ai.loading}
+        />
         
         {/* Popup Notification */}
         <Popup

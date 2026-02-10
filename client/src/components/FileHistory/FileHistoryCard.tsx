@@ -1,16 +1,18 @@
-import { Paper, Box, Typography, Button, Chip } from '@mui/material';
+import { Paper, Box, Typography, Button, Chip, IconButton, Tooltip } from '@mui/material';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import type { FileHistoryItem } from '../../types';
 import { formatDate } from '../../utils/formatters';
 
 interface FileHistoryCardProps {
   item: FileHistoryItem;
   onSelect: (uuid: string, filename : string) => void;
+  onViewAISummary?: (uuid: string) => void;
   isSelected?: boolean;
 }
 
-export default function FileHistoryCard({item, onSelect, isSelected = false} : FileHistoryCardProps){
+export default function FileHistoryCard({item, onSelect, onViewAISummary, isSelected = false} : FileHistoryCardProps){
   return (
     <Paper
       elevation={isSelected ? 4 : 1}
@@ -44,14 +46,31 @@ export default function FileHistoryCard({item, onSelect, isSelected = false} : F
           </Box>
         </Box>
 
-        <Button
-          variant={isSelected ? 'contained' : 'outlined'}
-          size="small"
-          startIcon={<VisibilityIcon />}
-          onClick={() => onSelect(item.uuid, item.filename)}
-        >
-          {isSelected ? 'Selected' : 'Select'}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {onViewAISummary && (
+            <Tooltip title="View AI Summary">
+              <IconButton
+                color="secondary"
+                onClick={() => onViewAISummary(item.uuid)}
+                sx={{ 
+                  border: '1px solid',
+                  borderColor: 'divider',
+                }}
+              >
+                <SmartToyIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+          
+          <Button
+            variant={isSelected ? 'contained' : 'outlined'}
+            size="small"
+            startIcon={<VisibilityIcon />}
+            onClick={() => onSelect(item.uuid, item.filename)}
+          >
+            {isSelected ? 'Selected' : 'Select'}
+          </Button>
+        </Box>
       </Box>
     </Paper>
   );

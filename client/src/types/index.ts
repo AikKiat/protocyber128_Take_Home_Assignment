@@ -180,6 +180,8 @@ export interface FileHistoryItem {
   timestamp: number;
   fileType: string;
   scanMode: UploadMode;
+  aiSummary?: string; // Cached AI summary for this file
+  aiLoading?: boolean; // Whether AI summary is currently being generated
 }
 
 
