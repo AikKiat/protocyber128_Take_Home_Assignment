@@ -99,7 +99,609 @@ Therefore, from here I could slowly map out where within this system, the key co
 
 Therefore, these are some of my key considerations, tying in to my theoretical learning. From here onwards, I personally adhered to these concepts and prerequisites for security in my actual implementation.
 
-### 2. 
+### 2. Data Retrieval from VirusTotal
+
+I first called the VirusTotal api endpoints via Postman, after reading their documentation. I gathered that there are 4 key endpoints that have to be used in this project:
+BASE URL : https://www.virustotal.com/api/v3
+POST /files --> This is for uploading a file (smaller than 32MB) 
+
+POST /upload --> This is for uploading a file that is larger than 32MB. What is returned is a url that we then will need to use, to send the actual multipart file data via a POST request
+
+GET /analysis --> This is to query the scan progress and thus results of a particular file sent via /files and /upload POST endpoints.
+
+POST /files/{id} --> given a file's hash value, pertains to retrieving the pertinent reports about it.
+
+All these endpoints require inputting the VirusTotal API key.
+
+### 3. User Workflow Ideation
+As such, from here we can spot two different workflows:
+
+```
+                                    ┌─────────────────┐
+                                    │   User Uploads  │
+                                    │      File       │
+                                    └────────┬────────┘
+                                             │
+                         ┌───────────────────┴───────────────────┐
+                         │                                       │
+                    ┌────▼─────┐                         ┌───────▼──────┐
+                    │  Quick   │                         │     Full     │
+                    │   Scan   │                         │     Scan     │
+                    │ (Hash)   │                         │  (Upload)    │
+                    └────┬─────┘                         └───────┬──────┘
+                         │                                       │
+                         │                           ┌───────────┴──────────┐
+                         │                           │                      │
+                    ┌────▼─────┐              ┌──────▼──────┐      ┌────────▼────────┐
+                    │ Compute  │              │ Small File  │      │   Large File    │
+                    │SHA-256   │              │  ≤ 32MB     │      │  32MB-650MB     │
+                    │  Hash    │              └──────┬──────┘      └────────┬────────┘
+                    └────┬─────┘                     │                      │
+                         │                           │                      │
+                    ┌────▼─────┐              ┌──────▼──────┐      ┌────────▼────────┐
+                    │Query VT  │              │POST /files  │      │GET upload URL   │
+                    │/files/   │              │             │      │POST to URL      │
+                    │ {hash}   │              └──────┬──────┘      └────────┬────────┘
+                    └────┬─────┘                     │                      │
+                         │                           └─────────┬────────────┘
+                    ┌────▼─────┐                               │
+                    │Found in  │                        ┌──────▼──────┐
+                    │VT DB?    │                        │   Return    │
+                    └────┬─────┘                        │ Analysis ID │
+                         │                              └──────┬──────┘
+              ┌──────────┴──────────┐                          │
+              │                     │                          │
+         ┌────▼─────┐         ┌─────▼──────┐          ┌────────▼───────┐
+         │   YES    │         │     NO     │          │ Poll Analysis  │
+         │Return    │         │  Return    │          │  GET /analyses │
+         │File Obj  │         │  404/204   │          │     /{id}      │
+         └────┬─────┘         └─────┬──────┘          └────────┬───────┘
+              │                     │                          │
+              └─────────┬───────────┘                          │
+                        │                                      │
+                   ┌────▼───────────┐                     ┌──────▼──────┐
+                   │  Store         │                     │  Analysis   │
+                   │  for           │◄────────────────────┤  Complete?  │
+                   │  persistence   │                     └──────┬──────┘
+                   └────┬───────────┘                            │
+                        │                                        │
+                   ┌────▼────────────────────────────────────────▼───┐
+                   │         Display Results to User                 │
+                   │    ┌──────────────────────────────────┐         │
+                   │    │  Optional: Request AI Summary    │         │
+                   │    │   (Non-blocking, Streaming)      │         │
+                   │    └──────────────────────────────────┘         │
+                   └─────────────────────────────────────────────────┘
+                                        │
+                   ┌────────────────────▼────────────────────┐
+                   │  User Can Navigate to File History      │
+                   │  (Quick Retrieval from storage)         │
+                   └─────────────────────────────────────────┘
+```
+
+#### Quick Upload via File Hash
+The first workflow is for quick uploads. So if a user has a file, we can first check if the file been scanned before via a computation of its hash, and retrieve results from there. I believe this is useful for common files, malware samples that have been seen before.
+
+#### Full Scan Upload (Small and Large Files)
+The second workflow is to really send the file to VT for a full scan consisting of more than 70 machines.
+
+I felt this constraint actually taught me something valuable about API design at scale considering how the user would like to navigate and be served. Ultimately, this can make our web application more flexible.
+
+#### AI Summary Generation
+So once the user uploads the files and gets the results, he/she can request for the AI analysis. 
+
+#### Historical Data Retrieval
+Finally, users can view the results of the files they have scanned and analysed with AI. This requirement for quick retrieval and responsiveness helped me to decide on my storage strategy, which I'll cover in Section 6.
+
+---
+
+### 4. Backend Data Modelling
+
+Coming from a background where I often worked with loosely-typed data structures, I felt that this project was an opportunity to embrace strict type validation from the ground up. So I used Python's Pydantic library.
+
+#### Why Pydantic Models?
+The core principle here ties back to "Defense in Depth" and "Secure by Default". I wanted multiple layers of data validation:
+1. **At the API boundary** - when data comes from the frontend
+2. **At the external service boundary** - when data comes from VirusTotal
+3. **At the storage boundary** - when data is retrieved from Redis
+
+Pydantic models provide automatic validation, type checking, and clear error messages. If VirusTotal's API response structure changes unexpectedly, or if an attacker tries to send malformed data, then the Pydantic validation catches it immediately. Prevent errors from silently coming in to our system.
+
+
+
+### 5. Backend Folder Architecture and Separation of Concerns
+Therefore, st this point I organized my backend following a clear layered architecture pattern:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         HTTP REQUEST (Client)                           │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  ROUTES LAYER (routes/)                                                 │
+│  ┌────────────────────────────────────────────────────────────────┐     │
+│  │  • vt_scan_files.py      - VirusTotal scan endpoints           │     │
+│  │  • ai_summarise.py       - AI summary generation endpoints     │     │
+│  │  • files_operations.py   - File management endpoints           │     │
+│  └────────────────────────────────────────────────────────────────┘     │
+│  [FastAPI validation, HTTP status codes, request/response formatting]   │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  SERVICES LAYER (services/)                                             │
+│  ┌────────────────────────────────────────────────────────────────┐     │
+│  │  • vt_scan_files.py      - VT API orchestration logic          │     │
+│  │  • ai_summarise.py       - AI workflow coordination            │     │
+│  │  • files_operations.py   - File processing business logic      │     │
+│  └────────────────────────────────────────────────────────────────┘     │
+│  [Business logic, workflow orchestration, error handling]               │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+                  ┌──────────────────┴──────────────────┐
+                  │                                     │
+                  ▼                                     ▼
+┌─────────────────────────────────────┐  ┌────────────────────────────┐
+│  REPOSITORY LAYER (repository/)     │  │  AI MODULE (ai/)           │
+│  ┌────────────────────────────────┐ │  │  ┌──────────────────────┐  │
+│  │ • file_uploads_record.py       │ │  │  │ • llm.py (Singleton) │  │
+│  │ • parse_analysis_object_result │ │  │  │ • ai_call.py         │  │
+│  │ • parse_file_object_result     │ │  │  │ • build_context.py   │  │
+│  └────────────────────────────────┘ │  │  │ • prompts.py         │  │
+│  [Data transformation, Redis I/O]   │  │  │ • state.py           │  │
+└──────────────┬──────────────────────┘  │  └──────────────────────┘  │
+               │                         │  [LangChain, LLM calls]    │
+               ▼                         └────────────────────────────┘
+┌─────────────────────────────────────┐
+│  VT API MAPPERS (vt_api_mappers/)   │
+│  ┌────────────────────────────────┐ │
+│  │ • vt_base_mapper_model.py      │ │
+│  │ • vt_get_file_report.py        │ │
+│  │ • vt_get_analysis.py           │ │
+│  │ • vt_post_upload_file.py       │ │
+│  └────────────────────────────────┘ │
+│  [Pydantic models for VT API]       │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────┐  ┌───────────────────────────────┐
+│  DOMAIN LAYER (domain/)             │  │  UTILS (utils/)               │
+│  ┌────────────────────────────────┐ │  │  ┌─────────────────────────┐  │
+│  │ • file_uploads_record.py       │ │  │  │ • config.py             │  │
+│  │   (Core business model)        │ │  │  │   (Singleton)           │  │
+│  └────────────────────────────────┘ │  │  │ • vt_redis_cache.py     │  │
+│  [Pydantic domain models]           │  │  │ • generate_file_hash.py │  │
+└─────────────────────────────────────┘  │  │ • temp_storage.py       │  │
+                                         │  │ • streaming_queue.py    │  │
+                                         │  └─────────────────────────┘  │
+                                         │  [Shared functionalities]     │
+                                         └───────────────────────────────┘
+                  
+┌───────────────────────────────────────────────────── ──┐
+│              EXTERNAL SERVICES & STORAGE               │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐   │
+│  │  VirusTotal  │  │    Data      │  │  OpenAI API │   │
+│  │     API      │  │    Store     │  │             │   │
+│  └──────────────┘  └──────────────┘  └─────────────┘   │
+└────────────────────────────────────────────────────────┘
+
+backend/
+├── routes/           # Expose APIs
+├── services/         # Where core business logic exists, and utilise the methods exposed by the repository.
+├── repository/       # Data access, so we dont access the domain class model directly.
+├── domain/           # Core domain model (FileUploadsRecord Singleton)
+├── vt_api_mappers/   # VirusTotal API response models, and also the entity classes for the data passed over.
+├── ai/               # AI module (LangChain, LangGraph + LLM)
+└── utils/            # Shared utilities and config
+```
+
+Each layer has a distinct responsibility:
+
+- **`domain/`**: Contains the Pydantic models representing core business entities. For example, `file_uploads_record.py` is the Singleton class that contains all data that needs to be persisted. It represents itself as a boundary actor between the backend server and the datastore, fetching data from the datastore and thus only encapsulating the current data the client wants, and of which the end user is looking at. Therefore, also represents itself as the Single Source of Truth for the AI, in terms of what to analyse.
+
+- **`vt_api_mappers/`**: Contains Pydantic models that map exactly to VirusTotal's API response schemas. Entity class models like `vt_get_file_report.py`, `vt_get_analysis.py`, and `vt_post_upload_file.py` ensure we can safely parse and validate responses from VirusTotal. A translation layer between VT and our backend server.
+
+- **`repository/`**: This layer handles data transformation and access. Files like `parse_analysis_object_result.py` and `parse_file_object_result.py` take the raw results from VT, and parse them to be represented one layer down in the above described entity classes. The other main repository file `file_uploads_record.py` is syntactically defined like its domain class model counterpart. I felt that this provides more clarity so developers can easily map out which files belong to which group as an architectural set. `file_uploads_record.py` exposes key methods that manipulate the domain attributes in `file_uploads_record.py`.
+
+- **`services/`**: The core business logic, like calling VirusTotal APIs, invoking the repository methods to store data, and manage error handling.
+
+- **`routes/`**: These are the FastAPI route handlers that define our REST API endpoints, and the entry point.
+
+For further clarity I input my debug statements in a particular format : `[FILENAME_LAYER <statement>]`
+
+#### Singleton Pattern for State Management
+2. **file_uploads_record.py**
+
+Mainly, it contains info about:
+- The current upload result (vt_upload_result)
+- The current AI summary 
+- A hashmap consisting of all filenames, to analysis Ids (for the full scan)
+- A hashmap consisting of all UUIDs (generated via uuid.uuid3() so each unique filename is given a unique UUID).
+
+*So linking back to my considerations about data transmissions being as less meaningful as possible*, so even with packet sniffing attackers cannot get much out of anything --> whenever a user chooses to retrieve past data regarding a certain filename, then the UUID is sent from the client to the backend server instead of the filename. 
+
+*A UUID also makes all of the data much more controllable semantically*, and how unique entries are created is through a small edit I created at the *services* layer, which *calculates the UUID*: For the filename is concatenated with `quick` or `full` so the resulting UUID is different for a filename that was sent to quick scan, and full scan. 
+
+
+**2. LLM Instance**
+The Generative AI model is encapsulated in a singleton (`ai/llm.py`). This design decision came from my internship experience.
+
+By using a singleton with a clean interface, we can easily interchange the underlying GenAI service without changing any of the code that calls it, something like dependency injection.
+
+**3. Global Settings Configuration**
+Following the principle of "Secure by Default", I centralized all configuration in a singleton `SystemSettings` class (`utils/config.py`). This singleton loads environment variables once at startup and provides typed access to:
+- API keys (VirusTotal, OpenAI/Anthropic)
+- Redis connection details
+- File size limits
+- Temporary storage paths
+---
+
+### 6. Storage Considerations and Data Persistence
+
+Now on to data storage and persistence. One of my key inspirations for this project (and how it would influence my frotend design) is *remove.bg* website. User's ultimately can view their old files which were processed, and now when we have GenAI, we also need to make sure that we keep the data alive for usage by the GenAI.
+
+#### Why Not In-Memory (Process Memory)?
+I knew that the simplest way would be to store the data in-memory via data structures like hashmaps. But I felt that this has its limitations especially when *creating a service that needs to scale in the future:*
+
+1. **Data Volume**: VirusTotal returns comprehensive analysis objects with data from 70+ antivirus engines, file metadata, threat classifications, and more. A single file report can be several kilobytes of JSON. Add AI summaries on top of that and there will be a lot of data residing in process memory.
+
+2. **Persistence**: If the backend server restarts, all scan history is lost also.
+
+3. **Scalability**: In-memory storage doesn't scale horizontally, and so multiple EC2 instances cannot share state. If a user is directed between two web servers then he/she may get inconsistent data.
+
+Regarding this project, I felt that a traditional database would be too overkill and complex as well, because then we would need to focus on relational data mapping. And *going back to simplicity*, I felt that there is *no need for a user to log in* to our website. Similar to *remove.bg*, we just offer good quality insights. 
+
+
+#### Redis as the Sweet Spot
+So I chose Redis, a single threaded in-memory database. which offers *very fast retrieval*.
+
+I implemented Redis caching as a separate utlity class, and its exposed methods are called by the `file_uploads_record` singleton through the repository. Pattern:
+    1. Check if result exists in Redis cache by UUID
+    2. If cache hit, return immediately
+    3. If cache miss, fetch from VirusTotal, store in cache, return result
+---
+
+### 7. Creating the Frontend Interface
+
+Following my design, security considerations and inspiration by **remove.bg** until here, I decided to make the frontend a simple Single Page Application (SPA).
+
+#### Why Material UI and React?
+For this project, I decided to step out of my comfort zone and learn React with Material UI (MUI). My experience in frontend developement has been vanilla HTML, CSS, ReactTS/JS. But considering my time, using a framework was *much faster for iteration, and also makes my code easier to be understood across a unified standard, by other developers.*
+
+#### Organizing Logic: The Hooks Pattern
+One pattern that really clicked for me was custom hooks. Coming from vanilla JavaScript where I'd often have tangled code mixing API calls, UI updates, and state management, React hooks felt like a revelation in separation of concerns.
+
+
+#### Importance of UI flow:
+As such, according to the user workflow diagrams the UI should be fast, and while waiting for a full scan to complete / AI to generate analysis the user should be able to browse other things.
+
+From my internship experienceI have realised how slow LLM inference can be, so its good to make this part *non-blocking*. 
+Flow:
+    1. The AI summary request is sent to the backend
+    2. The backend streams chunks of the summary as they're generated
+    3. The frontend displays the summary progressively, character by character
+    4. Meanwhile, the user can navigate away, view other files, or continue using the application.
+
+---
+
+### 8. Containerization and Docker, Nginx.
+
+#### Secure Temporary File Handling
+I realised that as FastAPI processes uploaded files, they're still temporarily stored in server memory and potentially written to disk in temp directories. So, what we need to make sure that these files dont get executed. 
+
+Drawing from the "Secure by Default" principle, I implemented a secure temporary storage strategy:
+
+1. **Dedicated Temp Directory**: Create a specific directory (`/tmp/file_uploads` in the container) for uploaded files
+2. **Restricted Permissions**: In the Dockerfile, explicitly remove write and execute permissions from this directory for uploaded content
+3. **Immediate Cleanup**: Files are read into memory and the temp file is deleted immediately after processing
+
+Dockerfile (Backend):
+```
+# Create a dedicated non-root user for security
+RUN useradd --uid 10001 --create-home --shell /bin/bash appuser && \
+    mkdir -p ${TMP_UPLOAD_DIR} && \
+    chown -R appuser:appuser /app && \
+    chmod 700 ${TMP_UPLOAD_DIR}
+
+Over here, I made sure to create the temporary folder, with initial permissions set as ------ so only appuser can access the folder, read, write, and can traverse into it.
+```
+Then in docker compose:
+```
+tmpfs:
+      - /app/tmp_uploads:rw,noexec,nosuid,size=100m,uid=10001,gid=10001,mode=1777
+    restart: unless-stopped
+
+Over here we make sure that the same folder has no permissions to execute files inside
+```
+
+This ensures that even if someone uploads a malicious executable, it cannot be executed from the temp directory. The file permissions act as an additional security boundary.
+
+#### Data transmission flow from client -> Nginx -> backend server.
+
+One thing I really wanted to emphasize is validation at multiple layers. I implemented file size limits in three places:
+
+1. **Nginx Configuration** (`client/nginx.conf`):
+   ```nginx
+   client_max_body_size 650m;
+   ```
+   This is the first line of defense. Nginx rejects oversized uploads before they even reach the backend.
+
+2. **FastAPI Route Handler** (`backend/routes/vt_scan_files.py`):
+   ```python
+   VT_MAX_FILE_SIZE = 650 * 1024 * 1024  # 650MB
+   if file.size > VT_MAX_FILE_SIZE:
+       raise HTTPException(...)
+   ```
+   Even if something bypasses Nginx, the route handler checks again.
+
+3. **Service Layer** (`backend/services/vt_scan_files.py`):
+   ```python
+   content_size = len(content)
+   if content_size > 650 * 1024 * 1024:
+       raise HTTPException(...)
+   ```
+   Finally, the service validates the actual content size.
+
+This redundancy felt important, as each layer doesn't trust the previous one. I applied the "Zero Trust" principle here. If there's a misconfiguration at one layer, the others catch it.
+
+**Actual Configuration Snippets:**
+
+1. **Nginx Layer** (`client/nginx.conf`):
+```nginx
+server {
+    listen 80;
+    server_name _;
+
+    # 🔐 Upload size (VirusTotal max is 650MB)
+    client_max_body_size 650m;
+
+    # Backend API proxy
+    location /api/ {
+        proxy_pass http://backend:8000/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        
+        # 🔑 Required for file uploads
+        proxy_request_buffering off;
+        proxy_buffering off;
+    }
+}
+```
+
+2. **FastAPI Route Layer** (`backend/routes/vt_scan_files.py`):
+```python
+@router.post("/upload-complete")
+async def full_scan(file: UploadFile = File(...), password: Optional[str] = None):
+    # VirusTotal supports files up to 650MB
+    VT_MAX_FILE_SIZE = 650 * 1024 * 1024  # 650MB
+    
+    if file.size > VT_MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File size exceeds 650MB limit. VirusTotal does not support files larger than this."
+        )
+    
+    result = await upload_file_to_vt_db(file=file, password=password)
+    return {"status": status.HTTP_200_OK, "result": result}
+```
+
+3. **Service Layer** (`backend/services/vt_scan_files.py`):
+```python
+async def upload_file_to_vt_db(file: UploadFile, password: str):
+    content = await file.read()
+    content_size = len(content)
+    
+    # Check if file is too large (650MB limit as per VT documentation)
+    if content_size > 650 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="[VT_SCAN_FILES_SERVICE] File size exceeds 650MB limit."
+        )
+    
+    # For files larger than 32MB, use special upload URL
+    if content_size > 32 * 1024 * 1024:
+        upload_url = await get_upload_url_for_large_file()
+        analysis_id = await upload_large_file_to_vt(file, content, upload_url, password)
+        # ... rest of logic
+```
+
+#### Nginx other configurations:
+Other functionalities set in Nginx:
+
+- **Request Buffering**: Disabled (`proxy_request_buffering off`) for efficient file upload streaming
+- **Static Asset Caching**: Caches frontend assets to reduce load
+- **API Routing**: Cleanly separates `/api/*` routes from the backend, so we dont expose the backend directly.
+---
+
+### 9. Docker Compose for Overall Integration
+
+With three separate services (client, backend, Redis), I thus proceeded to integrate all of them under one startable platform via Docker Compose:
+
+`docker-compose.yml`:
+
+```yaml
+services:
+  backend:
+    # Python FastAPI service
+    # Depends on Redis
+    
+  redis:
+    # Caching layer
+    # Persistent volume for data
+    
+  client:
+    # Nginx + React frontend
+    # Depends on backend
+```
+**Port Mapping**: Only port 80 (Nginx) is exposed to the host. Backend and Redis are accessible only within the Docker network. This is also present when I set the *Security Groups* in AWS.
+
+Running `docker-compose up` brings up the entire application stack. This made development and testing so much smoother - I could tear down and rebuild the whole system with one command.
+
+---
+
+### 10. Deploying to AWS and Secure Cloud Architecture
+
+#### The Secrets Manager Migration
+Earlier, I mentioned that using `.env` files for secrets was acceptable for development but not for production. When deploying to AWS EC2, I implemented proper secrets management using AWS Secrets Manager.
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    SECRETS LIFECYCLE MANAGEMENT                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+         DEVELOPMENT                          PRODUCTION (AWS)
+              
+    ┌─────────────────┐                  ┌────────────────────────┐
+    │   .env file     │                  │  AWS Secrets Manager   │
+    │  (gitignored)   │                  │   (vt-scanner-secrets) │
+    │                 │                  │  ┌─────────────────┐   │
+    │ VT_API_KEY=xxx  │                  │  │ VT_API_KEY      │   │
+    │ OPENAI_KEY=yyy  │                  │  │ OPENAI_API_KEY  │   │
+    │ REDIS_HOST=...  │                  │  │ REDIS_HOST      │   │
+    └────────┬────────┘                  │  │ REDIS_PORT      │   │
+             │                           │  └─────────────────┘   │
+             │                           └──────────┬─────────────┘
+             │                                      │
+             ▼                                      ▼
+    ┌────────────────────┐              ┌──────────────────────┐
+    │   Backend reads    │              │     IAM Role         │
+    │   from .env on     │              │  (EC2 Instance)      │
+    │    startup         │              │                      │
+    └────────────────────┘              │  Policy:             │
+                                        │  SecretsManager      │
+                                        │  ReadWrite           │
+                                        └──────────┬───────────┘
+                                                   │
+                                                   ▼
+                                        ┌──────────────────────┐
+                                        │  Deployment Script   │
+                                        │  (deploy_ec2.sh)     │
+                                        │                      │
+                                        │  aws secretsmanager  │
+                                        │  get-secret-value    │
+                                        │  ├─► export VT_*     │
+                                        │  ├─► export OPENAI_* │
+                                        │  └─► export REDIS_*  │
+                                        └──────────┬───────────┘
+                                                   │
+                                                   ▼
+                                        ┌──────────────────────┐
+                                        │  Docker Compose      │
+                                        │  up -d --build       │
+                                        │                      │
+                                        │  Backend reads env   │
+                                        │  vars (same as dev)  │
+                                        └──────────────────────┘
+
+    Example workflow (Key Compromised):
+
+    ⚠️  VT API Key Compromised!
+             │
+             ▼
+    ┌────────────────────┐
+    │ 1. Generate new    │
+    │    key in VT       │
+    └────────┬───────────┘
+             │
+             ▼
+    ┌────────────────────┐
+    │ 2. Update secret   │
+    │    in AWS Secrets  │         
+    │    Manager console │        
+    └────────┬───────────┘
+             │
+             ▼
+    ┌────────────────────┐
+    │ 3. Restart backend │
+    │    service via:    │
+    │    ./deploy_ec2.sh │
+    │    (re-runs script)│
+    └────────┬───────────┘
+             │
+             ▼
+    ┌────────────────────┐
+    │ 4. Script fetches  │
+    │    new secret and  │
+    │    redeploys       │
+    └────────────────────┘
+```
+
+The journey went like this:
+
+1. **Created Secrets in AWS Secrets Manager**: Stored `VT_API_KEY`, `OPENAI_API_KEY`, `REDIS_PASSWORD`.
+
+2. **IAM Role for EC2**: Created an IAM role with `SecretsManagerReadWrite` policy and attached it to the EC2 instance. This embodies the Principle of Least Privilege - the EC2 instance can read secrets, and only the secrets of this file scanner --> vtfilescanner via its `Amazon Resource Name (arn)` provided into the policy JSON.
+
+3. **Deployment Script Fetches Secrets**: The deployment script (`scripts/deploy_ec2.sh`) then fetches the secrets from Secrets Manager using AWS CLI once during startup, then exports them as environment variables:
+   
+   **Deployment Script** (`scripts/deploy_ec2.sh`):
+   ```bash
+   #!/usr/bin/env bash
+   # Deploy ProtoCyber stack on EC2 using AWS Secrets Manager
+   
+   SECRET_ID=${1:-Protocyber/BackendSecrets}
+   REPO_DIR="/home/ec2-user/protocyber128_Take_Home_Assignment"
+   
+   # Check for required tools
+   if ! command -v aws >/dev/null 2>&1; then
+     echo "aws CLI not found. Install awscli v2." >&2
+     exit 1
+   fi
+   
+   if ! command -v jq >/dev/null 2>&1; then
+     echo "jq not found. Install it with 'sudo yum install -y jq'." >&2
+     exit 1
+   fi
+   
+   # Fetch secrets as a JSON document from AWS Secrets Manager
+   SECRET_JSON=$(aws secretsmanager get-secret-value \
+     --secret-id "$SECRET_ID" \
+     --query SecretString --output text)
+   
+   # Parse JSON and export as environment variables
+   export VT_API_KEY=$(echo "$SECRET_JSON" | jq -r '.VT_API_KEY')
+   export OPENAI_API_KEY=$(echo "$SECRET_JSON" | jq -r '.OPENAI_API_KEY')
+   export REDIS_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.REDIS_PASSWORD')
+   export REDIS_USERNAME=${REDIS_USERNAME:-"default"}
+   export REDIS_HOST=${REDIS_HOST:-"redis"}
+   export REDIS_PORT=${REDIS_PORT:-6379}
+   
+   cd "$REPO_DIR"
+   
+   # Pull latest code
+   git fetch --prune
+   git checkout main
+   git pull --ff-only origin main
+   
+   # Rebuild and start containers with secrets as environment variables
+   docker compose up -d --build
+   
+   echo "Deployment complete!"
+   docker compose ps
+   ```
+*So there are no Secrets in Repository*, and the `.env` file is gitignored. Even if the repository is compromised, no secrets are exposed. The deployment script runs on the EC2 instance which has the IAM role attached, so it can fetch secrets without any credentials stored on disk.
+
+
+#### EC2 Security Configuration
+Beyond secrets management, I configured the EC2 instance with:
+
+- **Security Groups**: Inbound rules configured as follows:
+  - **SSH (port 22)**: From `115.66.154.71/32` only - restricted to my IP address for secure management
+  - **HTTP (port 80)**: Two rules:
+    - From `115.66.154.71/32` - for backend interface access
+    - From `0.0.0.0/0` - for public frontend access
+  - **Custom TCP (port 4173)**: From `0.0.0.0/0` - for development/testing purposes (Vite dev server)
+  - All other ports are blocked by default
+
+#### Github Actions
+Finally, I also implemented a simple github actions CI/CD workflow that on every push, both the frontend and backend codes will be built and then containerised using Docker. Testing can be added in the long term as well. So on every push subsequently, I could see from Github which pushes actually failed and due to silly bugs.
+
+Overall, this was a very englightening project, and I have learnt a lot. Looking forward to the discussion!
+
+---
 
 
 

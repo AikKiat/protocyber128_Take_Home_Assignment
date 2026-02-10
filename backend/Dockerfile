@@ -39,7 +39,7 @@ COPY . .
 RUN useradd --uid 10001 --create-home --shell /bin/bash appuser && \
     mkdir -p ${TMP_UPLOAD_DIR} && \
     chown -R appuser:appuser /app && \
-    chmod 1777 ${TMP_UPLOAD_DIR}
+    chmod 700 ${TMP_UPLOAD_DIR}
 
 USER appuser
 
