@@ -12,10 +12,13 @@ FILE_UPLOAD_MAX_SIZE = SystemSettings.get_instance().max_size
 @router.post("/upload-complete") #WORKS
 async def full_scan(file: UploadFile = File(...), password: Optional[str] = None):
     
-    if file.size > FILE_UPLOAD_MAX_SIZE:
+    # VirusTotal supports files up to 650MB
+    VT_MAX_FILE_SIZE = 650 * 1024 * 1024  # 650MB
+    
+    if file.size > VT_MAX_FILE_SIZE:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File size is too big."
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File size exceeds 650MB limit. VirusTotal does not support files larger than this."
         )
 
     try:

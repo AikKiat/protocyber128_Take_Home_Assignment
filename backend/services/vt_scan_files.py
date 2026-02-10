@@ -34,6 +34,64 @@ headers = {
 }
 
 
+async def get_upload_url_for_large_file():
+    """
+    Get a special upload URL for files larger than 32MB.
+    Each upload URL can be used only once.
+    
+    Returns the upload URL string.
+    """
+    url = f"{BASE_URL}/files/upload_url"
+    
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(url, headers=headers)
+        response.raise_for_status()
+        
+        data = response.json()
+        return data["data"]  # Returns the upload URL
+    except Exception as e:
+        raise RuntimeError(f"[VT_SCAN_FILES_SERVICE] Could not get upload URL for large file. Error: {e}")
+
+
+async def upload_large_file_to_vt(file: UploadFile, content: bytes, upload_url: str, password: str = None):
+    """
+    Upload a large file (>32MB) to VirusTotal using a special upload URL.
+    
+    - **file**: File object containing metadata
+    - **content**: File content bytes
+    - **upload_url**: Special upload URL obtained from get_upload_url_for_large_file()
+    - **password**: Optional password for protected ZIP files
+    
+    Returns the analysis ID.
+    """
+    files = {"file": (file.filename, content, file.content_type)}
+    data = {}
+    if password:
+        data["password"] = password
+    
+    try:
+        async with httpx.AsyncClient(timeout=180) as client:  # Longer timeout for large files
+            response = await client.post(upload_url, headers=headers, files=files, data=data)
+            
+            if response.status_code == 400:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="[VT_SCAN_FILE_SERVICE] Invalid file or password. Check if ZIP password is correct."
+                )
+            
+            response.raise_for_status()
+            payload = response.json()
+            print(payload)
+            content_model = FileUploadResponsePayload.model_validate(payload)
+            return content_model.data.id
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"[VT_SCAN_FILES_SERVICE] Could not upload large file to VT. Error: {e}")
+
+
 async def upload_file_to_vt_db(file : UploadFile, password : str):
 
     """
@@ -61,13 +119,33 @@ async def upload_file_to_vt_db(file : UploadFile, password : str):
     print("[VT_SCAN_FILES_SERVICE] Cache was a miss. Sending to VT for full scan.")
     
     content = await file.read()
+    content_size = len(content)
     
-    if len(content) > 32 * 1024 * 1024:
+    # Check if file is too large (650MB limit as per VT documentation)
+    if content_size > 650 * 1024 * 1024:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="[VT_SCAN_FILES_SERVICE] File size exceeds 32MB. Use /files/upload_url endpoint for larger files."
+            detail="[VT_SCAN_FILES_SERVICE] File size exceeds 650MB limit."
         )
     
+    # For files larger than 32MB, use special upload URL
+    if content_size > 32 * 1024 * 1024:
+        print(f"[VT_SCAN_FILES_SERVICE] File size ({content_size / (1024*1024):.2f}MB) exceeds 32MB. Using special upload URL.")
+        try:
+            upload_url = await get_upload_url_for_large_file()
+            analysis_id = await upload_large_file_to_vt(file, content, upload_url, password)
+            
+            add_to_uuid_filename_record(filename=filename, file_uuid=file_uuid)
+            add_filename_analysis_id_pair(file_uuid=file_uuid, analysis_id=analysis_id)
+            
+            return {"filename": filename.split("|")[0], "uuid": file_uuid, "found": False, "result": analysis_id}
+        
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise RuntimeError(f"[VT_SCAN_FILES_SERVICE] Could not submit large file to VT for full analysis. Error: {e}")
+    
+    # For files 32MB or smaller, use standard upload endpoint
     files = {"file": (file.filename, content, file.content_type)}
     data = {}
     if password:
