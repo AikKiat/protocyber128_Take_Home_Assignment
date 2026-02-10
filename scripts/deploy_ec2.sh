@@ -60,7 +60,6 @@ git checkout "$GIT_BRANCH"
 git pull --ff-only origin "$GIT_BRANCH"
 
 echo "Rebuilding containers..."
-docker compose pull || true
 docker compose up -d --build
 
 echo "Deployment complete. Current containers:"
