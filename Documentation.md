@@ -1,8 +1,75 @@
 
-## CloudsineAI Take Home Assignment
+## CloudsineAI Take Home Assignment (Thng Aik Kiat)
+### Documentation of my work in Building a simple *VirusTotal File Scanner*.
+
+
+## 🚀 Tech Stack
+
+
+### ☁️ Cloud Infrastructure (AWS)
+
+![AWS](https://img.shields.io/badge/AWS-Cloud-orange?logo=amazonaws&logoColor=white)
+
+- 🖥️ **Amazon EC2** – Hosts containerised backend, frontend, and Redis services  
+- 🔑 **AWS IAM (Instance Roles)** – Secure role-based access without local credentials  
+- 🗝️ **AWS Secrets Manager** – Stores API keys & sensitive configs safely  
+- 🛡️ **AWS WAF (Planned)** – Layer 7 traffic filtering for hardened APIs  
+- 🔒 **AWS ACM + HTTPS (Planned)** – TLS certificate management for secure HTTPS  
+
 ---
-### Documentation of my work in Building a simple VirusTotal File Scanner.
+
+### 🧠 Backend
+
+![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)  
+![FastAPI](https://img.shields.io/badge/FastAPI-async%20framework-teal?logo=fastapi&logoColor=white)  
+![Redis](https://img.shields.io/badge/Redis-InMemory-red?logo=redis&logoColor=white)
+
+- 🐍 **Python 3.11**  
+- ⚡ **FastAPI** – Async, high-performance API framework  
+- 📏 **Pydantic** – Strict validation & structured modelling  
+- 🚀 **Uvicorn** – ASGI server powering production runtime  
+- 🤖 **LangGraph + LLM Integration** – AI summarisation of VirusTotal results  
+- 🗃️ **Redis** – In-memory datastore for caching, summaries, and state  
+
 ---
+
+### 🖥️ Frontend
+
+![React](https://img.shields.io/badge/React-JS-blue?logo=react&logoColor=white)  
+![TypeScript](https://img.shields.io/badge/TypeScript-Strong%20Types-blue?logo=typescript&logoColor=white)  
+![Vite](https://img.shields.io/badge/Vite-Build%20Tool-yellow?logo=vite&logoColor=white)  
+![MUI](https://img.shields.io/badge/MUI-UI%20Framework-blue?logo=mui&logoColor=white)
+
+- ⚛️ **React + TypeScript**  
+- ⚡ **Vite** – Lightning-fast build tool & dev server  
+- 🎨 **Material UI (MUI)** – Clean, security-focused dashboard components  
+- 🧩 **Custom Result Context Builder** – Unified rendering logic for results  
+
+---
+
+### 📦 Containerisation & DevOps
+
+![Docker](https://img.shields.io/badge/Docker-🐳-blue?logo=docker&logoColor=white)  
+![GitHub Actions](https://img.shields.io/badge/GitHub-Actions-lightgrey?logo=githubactions&logoColor=white)
+
+- 🐳 **Docker** – Multi-stage builds for backend & frontend  
+- 🔧 **Docker Compose** – Orchestrates FastAPI, Nginx, and Redis services  
+- 🤖 **GitHub Actions (CI)** – Automated pipeline for validation & builds  
+
+---
+
+### 🔐 Security Considerations
+
+![Security](https://img.shields.io/badge/Security-Hardened-green?logo=shield&logoColor=white)
+
+- 👤 Non-root container execution (`appuser`)  
+- 🧹 `tmpfs` ephemeral upload directory  
+- 🔒 Strict file permission management  
+- 🗝️ Secrets injected securely via IAM + Secrets Manager  
+- 🔀 Reverse proxy (Nginx) separating frontend & backend  
+- 🛡️ Planned WAF integration + TLS termination for production hardening  
+
+
 
 
 ### Contents:

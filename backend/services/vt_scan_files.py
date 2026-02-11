@@ -28,7 +28,7 @@ load_dotenv()
 VT_API_KEY = os.getenv("VT_API_KEY")
 BASE_URL = os.getenv("BASE_URL")
 
-####Main Service Methods
+
 headers = {
     "x-apikey": VT_API_KEY
 }
